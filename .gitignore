@@ -1,0 +1,22 @@
+# .NET Core
+*.sln
+*.swp
+[Oo]bj/
+[Bb]in/
+.vs/
+*.user
+*.userosscache
+*.suo
+*.userprefs
+*.lock.json
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Mac
+.DS_Store
+
+# Logs
+*.log
