@@ -89,7 +89,6 @@ namespace AntivirusScanner.Core
                         if (oldState.Status == "SAFE")
                         {
                             result.IsSkipped = true;
-                            // Still valid safe file
                             OnScanCompleted?.Invoke(result);
                             return result;
                         }
@@ -98,18 +97,16 @@ namespace AntivirusScanner.Core
 
                 Console.WriteLine($"🔎 Analizando: {Path.GetFileName(filePath)}...");
                 
-                // Calcular Hash
                 string hash = ComputeSha256(filePath);
                 if (string.IsNullOrEmpty(hash)) return result;
 
-                bool isSafe = false;
                 bool suspicious = false;
                 string reason = "";
 
                 // 2. Capa Histórica (Known Hash)
                 if (_config.HashHistory.TryGetValue(hash, out var status) && status == "SAFE")
                 {
-                    isSafe = true;
+                    // Already safe, do nothing
                 }
                 else
                 {
@@ -128,7 +125,6 @@ namespace AntivirusScanner.Core
 
                             if (!validExt)
                             {
-                                // Posible spoofing
                                 foreach (var mask in MaskExtensions)
                                     if (ext == mask) { suspicious = true; reason = $"Spoofing ({sig.Value.Desc} como {ext})"; }
                                 
@@ -149,14 +145,8 @@ namespace AntivirusScanner.Core
                         }
                         else if (vtResult == 0)
                         {
-                            isSafe = true;
-                            _config.HashHistory[hash] = "SAFE";
+                           _config.HashHistory[hash] = "SAFE";
                         }
-                    }
-                    else if (!suspicious)
-                    {
-                        // Si no hay API key y no detectamos nada raro localmente, asumimos seguro
-                        isSafe = true;
                     }
                 }
 
@@ -176,7 +166,7 @@ namespace AntivirusScanner.Core
                 }
 
                 // Update State
-                if (result.IsSafe && File.Exists(filePath)) // Check exists in case it was moved/deleted during scan
+                if (result.IsSafe && File.Exists(filePath))
                 {
                     _config.FileStates[filePath] = new FileState 
                     { 
@@ -187,7 +177,6 @@ namespace AntivirusScanner.Core
                     };
                 }
                 
-                // Save state periodically or here? For safety, save config now if changed
                 if (!result.IsSkipped) SettingsManager.Save(_config);
 
                 OnScanCompleted?.Invoke(result);

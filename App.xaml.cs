@@ -24,6 +24,13 @@ namespace AntivirusScanner
             }
 
             base.OnStartup(e);
+
+            // Global Error Handling
+            this.DispatcherUnhandledException += (s, args) =>
+            {
+                System.Windows.MessageBox.Show($"Ocurrió un error inesperado:\n{args.Exception.Message}\n\n{args.Exception.StackTrace}", "Error Crítico", System.Windows.MessageBoxButton.OK, System.Windows.MessageBoxImage.Error);
+                args.Handled = true;
+            };
         }
 
         protected override void OnExit(ExitEventArgs e)

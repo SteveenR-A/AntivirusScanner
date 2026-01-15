@@ -12,6 +12,7 @@ namespace AntivirusScanner.Utils
         public string ApiKey { get; set; } = "";
         public bool StartOnBoot { get; set; } = false;
         public bool StartMinimized { get; set; } = false;
+        public bool MonitoringEnabled { get; set; } = true;
 
         public Dictionary<string, FileState> FileStates { get; set; } = new();
         public Dictionary<string, string> HashHistory { get; set; } = new();
@@ -90,7 +91,7 @@ namespace AntivirusScanner.Utils
 
                 if (enable)
                 {
-                    string location = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+                    string? location = System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
                     if (!string.IsNullOrEmpty(location))
                     {
                         // Add /minimized arg if needed later, for now just the exe

@@ -13,6 +13,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Resource Include="logo.png" />
   </ItemGroup>
 
 </Project>

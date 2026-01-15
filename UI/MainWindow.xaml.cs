@@ -24,8 +24,22 @@ namespace AntivirusScanner.UI
             InitializeComponent();
             
             // Setup Tray Icon
+            // Setup Tray Icon
             _notifyIcon = new System.Windows.Forms.NotifyIcon();
-            _notifyIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
+            try
+            {
+                // Tray Icon from Exe
+                _notifyIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
+                
+                // Window Icon from Resource (Safe Load)
+                this.Icon = System.Windows.Media.Imaging.BitmapFrame.Create(new Uri("pack://application:,,,/logo.png"));
+            }
+            catch
+            {
+                // Fallback icon if extraction fails
+                _notifyIcon.Icon = System.Drawing.SystemIcons.Shield; 
+            }
+            
             _notifyIcon.Visible = true;
             _notifyIcon.Text = "Steveen Antivirus - Protegido";
             _notifyIcon.DoubleClick += (s, args) => ShowWindow();
@@ -81,16 +95,45 @@ namespace AntivirusScanner.UI
 
         private void StartServices()
         {
-            if (_config.StartOnBoot) // Reuse this flag logic or just always start monitor? usually always
+            if (_config.MonitoringEnabled)
             {
                 _monitor.Start();
+            }
+            UpdateMonitorUI();
+        }
+
+        private void UpdateMonitorUI()
+        {
+            if (_monitor.IsRunning)
+            {
+                ToggleMonitor.Content = "ON";
                 ToggleMonitor.IsChecked = true;
+                TxtStatusSidebar.Text = "🟢 Protegido";
+                TxtStatusSidebar.Foreground = System.Windows.Media.Brushes.Lime;
             }
             else
             {
+                ToggleMonitor.Content = "OFF";
                 ToggleMonitor.IsChecked = false;
+                TxtStatusSidebar.Text = "⚠️ Detenido";
+                TxtStatusSidebar.Foreground = System.Windows.Media.Brushes.Yellow;
             }
-            ToggleMonitor.Content = _monitor.IsRunning ? "ON" : "OFF";
+        }
+
+        private void ToggleMonitor_Click(object sender, RoutedEventArgs e)
+        {
+            if (_monitor.IsRunning)
+            {
+                _monitor.Stop();
+                _config.MonitoringEnabled = false;
+            }
+            else
+            {
+                _monitor.Start();
+                _config.MonitoringEnabled = true;
+            }
+            SettingsManager.Save(_config);
+            UpdateMonitorUI();
         }
 
         private void LoadSettingsToUI()
@@ -178,7 +221,7 @@ namespace AntivirusScanner.UI
             _monitor.UpdateConfig(_config);
             
             MessageBox.Show("Configuración guardada.", "Steveen AV", MessageBoxButton.OK, MessageBoxImage.Information);
-            BtnDashboard_Click(null, null);
+            ShowDashboard();
         }
 
         private async void BtnScanNow_Click(object sender, RoutedEventArgs e)
@@ -195,23 +238,14 @@ namespace AntivirusScanner.UI
             LogActivity("🏁 Escaneo completo finalizado.");
         }
 
-        private void ToggleMonitor_Click(object sender, RoutedEventArgs e)
+        private void ShowDashboard()
         {
-            if (_monitor.IsRunning)
-            {
-                _monitor.Stop();
-                ToggleMonitor.Content = "OFF";
-                TxtStatusSidebar.Text = "⚠️ Detenido";
-                TxtStatusSidebar.Foreground = System.Windows.Media.Brushes.Yellow;
-            }
-            else
-            {
-                _monitor.Start();
-                ToggleMonitor.Content = "ON";
-                TxtStatusSidebar.Text = "🟢 Protegido";
-                TxtStatusSidebar.Foreground = System.Windows.Media.Brushes.Lime;
-            }
+            ViewDashboard.Visibility = Visibility.Visible;
+            ViewSettings.Visibility = Visibility.Collapsed;
+            ViewHistory.Visibility = Visibility.Collapsed;
         }
+
+
 
         private void LogActivity(string text)
         {
