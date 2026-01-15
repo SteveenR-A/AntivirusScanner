@@ -73,7 +73,7 @@ Es un archivo de texto inofensivo, pero contiene una **cabecera falsa** que simu
 
 ## 🔒 Privacidad y Seguridad
 
-*   **Tus Datos**: Las API Keys se guardan localmente en tu PC (`%APPDATA%\TrueSight`). No se envían a ningún servidor externo salvo a VirusTotal (solo los hashes de los archivos).
+*   **Tus Datos**: Las API Keys se guardan localmente en tu PC (`%APPDATA%\TrueSigth`). No se envían a ningún servidor externo salvo a VirusTotal (solo los hashes de los archivos).
 *   **Cuarentena Segura**: Las amenazas detectadas se mueven a una carpeta aislada (`Quarantine`) y **se bloquean sus permisos (ACL)** automáticamente. 
     *   *Detalle Técnico:* El antivirus elimina todos los permisos de ejecución del archivo, dejándolo solo con permisos de lectura para el propietario. Esto evita que el malware se ejecute accidentalmente.
 
