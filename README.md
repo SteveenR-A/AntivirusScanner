@@ -1,6 +1,6 @@
-# 🛡️ TruelSigth Antivirus
+# 🛡️ TrueSight Antivirus
 
-**TruelSigth** es una solución de seguridad moderna y ligera desarrollada en **C# (.NET 10)**. Diseñada para ofrecer una segunda capa de protección robusta, combina análisis heurístico local con la inteligencia en la nube de **VirusTotal**.
+**TrueSight** es una solución de seguridad moderna y ligera desarrollada en **C# (.NET 10)**. Diseñada para ofrecer una segunda capa de protección robusta, combina análisis heurístico local con la inteligencia en la nube de **VirusTotal**.
 
 ![Status](https://img.shields.io/badge/status-Active-brightgreen) ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Type](https://img.shields.io/badge/Project-Educational-yellow)
 
@@ -53,7 +53,7 @@ Este es un proyecto de **Código Abierto** (actualmente en fase privada). Para u
     *   Ingresa tu API Key de VirusTotal (puedes obtener una gratis en [virustotal.com](https://www.virustotal.com)).
     *   *Nota:* Sin la Key, la app funcionará pero solo con detección local (Spoofing).
 3.  **Activa el Monitor**: Asegúrate de que el interruptor esté en **"ON"**.
-4.  **Siéntete Seguro**: Minimiza la ventana. TruelSigth seguirá trabajando desde la barra de tareas.
+4.  **Siéntete Seguro**: Minimiza la ventana. TrueSight seguirá trabajando desde la barra de tareas.
 
 ## ⚠️ Limitaciones Actuales
 
@@ -67,13 +67,13 @@ El proyecto incluye un archivo llamado `test_threat.txt` para verificar que el a
 
 ### ¿Cómo funciona este archivo?
 Es un archivo de texto inofensivo, pero contiene una **cabecera falsa** que simula ser un ejecutable (`MZ...`).
-1.  **El Engaño**: Windows cree que es texto (`.txt`), pero TruelSigth lee sus primeros bytes y ve que dice ser un programa (`.exe`).
+1.  **El Engaño**: Windows cree que es texto (`.txt`), pero TrueSight lee sus primeros bytes y ve que dice ser un programa (`.exe`).
 2.  **La Detección**: Al notar que la extensión no coincide con su contenido real, el motor **Anti-Spoofing** lo marca como una amenaza de "Doble Extensión" o "Ejecutable Oculto".
 3.  **La Prueba**: Copia este archivo a tu carpeta de Descargas (con el monitor activo) y verás cómo es interceptado y enviado a cuarentena al instante.
 
 ## 🔒 Privacidad y Seguridad
 
-*   **Tus Datos**: Las API Keys se guardan localmente en tu PC (`%APPDATA%\TruelSigth`). No se envían a ningún servidor externo salvo a VirusTotal (solo los hashes de los archivos).
+*   **Tus Datos**: Las API Keys se guardan localmente en tu PC (`%APPDATA%\TrueSight`). No se envían a ningún servidor externo salvo a VirusTotal (solo los hashes de los archivos).
 *   **Cuarentena Segura**: Las amenazas detectadas se mueven a una carpeta aislada (`Quarantine`) y **se bloquean sus permisos (ACL)** automáticamente. 
     *   *Detalle Técnico:* El antivirus elimina todos los permisos de ejecución del archivo, dejándolo solo con permisos de lectura para el propietario. Esto evita que el malware se ejecute accidentalmente.
 
