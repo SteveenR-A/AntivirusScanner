@@ -76,5 +76,10 @@ Es un archivo de texto inofensivo, pero contiene una **cabecera falsa** que simu
 *   **Cuarentena Segura**: Las amenazas detectadas se mueven a una carpeta aislada (`Quarantine`) y **se bloquean sus permisos (ACL)** automáticamente. 
     *   *Detalle Técnico:* El antivirus elimina todos los permisos de ejecución del archivo, dejándolo solo con permisos de lectura para el propietario. Esto evita que el malware se ejecute accidentalmente.
 
+## 🤝 Agradecimientos
+
+*   Desarrollado como proyecto educativo.
+*   Código refactorizado y optimizado con la asistencia de IA (**Antigravity**).
+
 ---
 *TruelSigth - Tu segunda opinión de confianza.*
