@@ -32,13 +32,13 @@ namespace AntivirusScanner.Utils
 
     public static class SettingsManager
     {
-        // %APPDATA%/TrueSight/config.json
+        // %APPDATA%/TruelSigth/config.json
         private static readonly string ConfigDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), 
-            "TrueSight"
+            "TruelSigth"
         );
         private static readonly string ConfigFile = Path.Combine(ConfigDir, "config.json");
-        private const string RegistryKeyName = "TrueSight";
+        private const string RegistryKeyName = "TruelSigth";
 
         public static AppConfig Load()
         {

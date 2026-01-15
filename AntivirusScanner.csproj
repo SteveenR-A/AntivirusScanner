@@ -10,7 +10,7 @@
     <Configurations>Debug;Release</Configurations>
     <!-- Asegurar que solo corra en Windows -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <AssemblyName>TrueSight</AssemblyName>
+    <AssemblyName>TruelSigth</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>

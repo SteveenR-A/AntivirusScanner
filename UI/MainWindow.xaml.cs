@@ -49,7 +49,7 @@ namespace AntivirusScanner.UI
             }
             
             _notifyIcon.Visible = true;
-            _notifyIcon.Text = "TrueSight - Protegido";
+            _notifyIcon.Text = "TruelSigth - Protegido";
             _notifyIcon.DoubleClick += (s, args) => ShowWindow();
             
             var contextMenu = new System.Windows.Forms.ContextMenuStrip();
@@ -176,7 +176,7 @@ namespace AntivirusScanner.UI
             {
                 e.Cancel = true; // Don't close
                 Hide(); // Just hide to tray
-                _notifyIcon.ShowBalloonTip(2000, "TrueSight", "El antivirus sigue corriendo en segundo plano.", System.Windows.Forms.ToolTipIcon.Info);
+                _notifyIcon.ShowBalloonTip(2000, "TruelSigth", "El antivirus sigue corriendo en segundo plano.", System.Windows.Forms.ToolTipIcon.Info);
             }
             else
             {
@@ -226,7 +226,7 @@ namespace AntivirusScanner.UI
             _scanner.UpdateConfig(_config);
             _monitor.UpdateConfig(_config);
             
-            MessageBox.Show("Configuración guardada.", "TrueSight", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Configuración guardada.", "TruelSigth", MessageBoxButton.OK, MessageBoxImage.Information);
             ShowDashboard();
         }
 

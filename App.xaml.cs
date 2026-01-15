@@ -10,7 +10,7 @@ namespace AntivirusScanner
 
         protected override void OnStartup(StartupEventArgs e)
         {
-            const string appName = "TrueSight_SingleInstance";
+            const string appName = "TruelSigth_SingleInstance";
             bool createdNew;
 
             _mutex = new Mutex(true, appName, out createdNew);
@@ -18,7 +18,7 @@ namespace AntivirusScanner
             if (!createdNew)
             {
                 // Ya se está ejecutando -> Traer al frente
-                IntPtr hWnd = FindWindow(null, "TrueSight");
+                IntPtr hWnd = FindWindow(null, "TruelSigth");
                 if (hWnd != IntPtr.Zero)
                 {
                     ShowWindow(hWnd, 9); // SW_RESTORE = 9
