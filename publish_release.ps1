@@ -1,7 +1,7 @@
-# Script para Construir y Empaquetar TruelSigth para GitHub
+# Script para Construir y Empaquetar TrueSight para GitHub
 $ErrorActionPreference = "Stop"
 
-Write-Host "🚀 Iniciando compilación de TruelSigth Release..." -ForegroundColor Cyan
+Write-Host "🚀 Iniciando compilación de TrueSight Release..." -ForegroundColor Cyan
 
 # 1. Limpiar y Compilar (Single File)
 dotnet publish -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:DebugType=None
@@ -12,9 +12,9 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Rutas
-$SourceFile = "bin\Release\net10.0-windows\win-x64\publish\TruelSigth.exe"
+$SourceFile = "bin\Release\net10.0-windows\win-x64\publish\TrueSight.exe"
 $ReleaseDir = "Releases"
-$ZipName = "$ReleaseDir\TruelSigth_v1.0.zip"
+$ZipName = "$ReleaseDir\TrueSight_v1.0.zip"
 
 # 2. Crear carpeta de Releases
 if (!(Test-Path $ReleaseDir)) {

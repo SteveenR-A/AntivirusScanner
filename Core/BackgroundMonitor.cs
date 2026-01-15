@@ -29,7 +29,7 @@ namespace AntivirusScanner.Core
                 {
                     NotifyFilter = NotifyFilters.FileName | NotifyFilters.Size | NotifyFilters.LastWrite,
                     Filter = "*.*",
-                    IncludeSubdirectories = false // Por ahora false, como pidió original
+                    IncludeSubdirectories = true // Habilitado para producción
                 };
 
                 _watcher.Created += OnFileChanged;
@@ -39,11 +39,10 @@ namespace AntivirusScanner.Core
 
                 _watcher.EnableRaisingEvents = true;
                 IsRunning = true;
-                Console.WriteLine($"[Monitor] Vigilando: {_config.TargetFolder}");
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"[Monitor] Error iniciando: {ex.Message}");
+                // Silently fail or log to file in future
             }
         }
 
@@ -75,10 +74,44 @@ namespace AntivirusScanner.Core
         private void OnFileChanged(object sender, FileSystemEventArgs e)
         {
             // Pequeño delay para permitir que el archivo termine de copiarse/crearse
-            System.Threading.Tasks.Task.Delay(500).ContinueWith(_ => 
+            // Usar un bucle de reintentos para esperar a que el archivo esté listo (desbloqueado)
+            System.Threading.Tasks.Task.Run(async () => 
             {
-                _ = _scanner.ScanFile(e.FullPath);
+                if (await WaitForFileReady(e.FullPath))
+                {
+                    _ = _scanner.ScanFile(e.FullPath);
+                }
             });
+        }
+
+        private async System.Threading.Tasks.Task<bool> WaitForFileReady(string path)
+        {
+            int maxRetries = 20; // 10 segundos max (20 * 500ms)
+            int delay = 500;
+
+            for (int i = 0; i < maxRetries; i++)
+            {
+                try
+                {
+                    // Intenta abrir el archivo con acceso exclusivo
+                    using (FileStream fs = File.Open(path, FileMode.Open, FileAccess.Read, FileShare.None))
+                    {
+                        if (fs.Length > 0) return true; // Listo y con contenido
+                    }
+                }
+                catch (IOException)
+                {
+                    // Archivo bloqueado (e.g., navegador descargando)
+                }
+                catch (Exception) 
+                {
+                    return false; // Error fatal (permisos, borrado, etc.)
+                }
+
+                await System.Threading.Tasks.Task.Delay(delay);
+            }
+            
+            return false; // Timeout
         }
 
         public void Dispose()

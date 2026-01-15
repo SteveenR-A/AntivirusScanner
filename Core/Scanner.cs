@@ -96,8 +96,6 @@ namespace AntivirusScanner.Core
                     }
                 }
 
-                Console.WriteLine($"🔎 Analizando: {Path.GetFileName(filePath)}...");
-                
                 string hash = ComputeSha256(filePath);
                 if (string.IsNullOrEmpty(hash)) return result;
 
@@ -186,7 +184,7 @@ namespace AntivirusScanner.Core
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error scanning file: {ex.Message}");
+                // Log error internally if needed
                 return result;
             }
         }
@@ -298,14 +296,14 @@ namespace AntivirusScanner.Core
                 }
                 catch (Exception aclEx)
                 {
-                    Console.WriteLine($"Error cambiando permisos ACL: {aclEx.Message}");
+                    // Fail silently for ACL errors in production
                 }
 
                 File.WriteAllText(destPath + ".txt", $"Original: {filePath}\nDate: {DateTime.Now}\nReason: {reason}");
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error moviendo a cuarentena: {ex.Message}");
+                // Error handling
             }
         }
     }
