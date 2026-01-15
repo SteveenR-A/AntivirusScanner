@@ -1,0 +1,170 @@
+<Window x:Class="AntivirusScanner.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Steveen Antivirus" Height="600" Width="900"
+        WindowStartupLocation="CenterScreen"
+        Background="#1E1E1E" Foreground="White"
+        ResizeMode="CanResize">
+
+    <Window.Resources>
+        <!-- Styles -->
+        <Style x:Key="NavButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="#AAAAAA"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="Height" Value="50"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" Padding="10">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Foreground" Value="#00FFFF"/>
+                    <Setter Property="Background" Value="#333333"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ActionBtn" TargetType="Button">
+            <Setter Property="Background" Value="#333333"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Padding" Value="15,10"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#555555"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" 
+                                BorderBrush="{TemplateBinding BorderBrush}" 
+                                BorderThickness="{TemplateBinding BorderThickness}" 
+                                CornerRadius="8">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#444444"/>
+                    <Setter Property="BorderBrush" Value="#00FFFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="200"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Sidebar -->
+        <Border Grid.Column="0" Background="#252526" BorderBrush="#333333" BorderThickness="0,0,1,0">
+            <StackPanel Margin="10,20,10,0">
+                <TextBlock Text="🛡️ STEVEEN AV" FontSize="18" FontWeight="Bold" Foreground="#00FFFF" Margin="10,0,0,30"/>
+
+                <Button Content="🏠   Dashboard" Style="{StaticResource NavButton}" Click="BtnDashboard_Click"/>
+                <Button Content="⚙️   Configuración" Style="{StaticResource NavButton}" Click="BtnSettings_Click"/>
+                <Button Content="📜   Historial" Style="{StaticResource NavButton}" Click="BtnHistory_Click"/>
+                
+                <Separator Background="#444444" Margin="10,20"/>
+                
+                <TextBlock Text="ESTADO" Foreground="#666666" FontSize="12" Margin="10,0,0,5"/>
+                <TextBlock x:Name="TxtStatusSidebar" Text="🟢 Protegido" Foreground="#00FF00" Margin="10,0,0,0"/>
+
+                <!-- Botón eliminar para ahorrar espacio
+                <StackPanel VerticalAlignment="Bottom" Margin="0,200,0,0">
+                     <Button Content="❌   Cerrar App" Style="{StaticResource NavButton}" Click="BtnExit_Click" Foreground="#FF5555"/>
+                </StackPanel>
+                -->
+            </StackPanel>
+        </Border>
+
+        <!-- Main Content Area -->
+        <Border Grid.Column="1" Background="#1E1E1E">
+            <Grid>
+                 <!-- DASHBOARD VIEW converted to Grid for better resizing -->
+                <Grid x:Name="ViewDashboard" Margin="40">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/> <!-- Icon -->
+                        <RowDefinition Height="Auto"/> <!-- Text -->
+                        <RowDefinition Height="Auto"/> <!-- Controls -->
+                        <RowDefinition Height="*"/>    <!-- Log (Fills rest) -->
+                    </Grid.RowDefinitions>
+
+                    <!-- Status Circle -->
+                    <Border Grid.Row="0" Width="150" Height="150" CornerRadius="100" BorderThickness="2" BorderBrush="#00FF00" HorizontalAlignment="Center">
+                        <Border.Effect>
+                            <DropShadowEffect Color="#00FF00" BlurRadius="20" ShadowDepth="0"/>
+                        </Border.Effect>
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                             <TextBlock Text="🛡️" FontSize="50" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+                    
+                    <StackPanel Grid.Row="1" HorizontalAlignment="Center" Margin="0,20,0,0">
+                        <TextBlock Text="Sistema Protegido" FontSize="28" FontWeight="Light" HorizontalAlignment="Center" Foreground="White"/>
+                        <TextBlock x:Name="TxtLastScan" Text="Último análisis: Nunca" FontSize="14" Foreground="#888888" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="2" Margin="0,30,0,20">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,20">
+                             <TextBlock Text="Protección Real:" VerticalAlignment="Center" Margin="0,0,20,0"/>
+                             <ToggleButton x:Name="ToggleMonitor" Content="ON/OFF" Width="50" Click="ToggleMonitor_Click"/>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <Button Content="ESCANEAR TODO AHORA" Width="200" Height="40" Style="{StaticResource ActionBtn}" Click="BtnScanNow_Click"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <Border Grid.Row="3" Background="#252526" CornerRadius="10" Padding="15">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="Actividad Reciente" FontWeight="Bold" Margin="0,0,0,10"/>
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <TextBlock x:Name="TxtRecentLog" Text="Esperando actividad..." Foreground="#AAAAAA" TextWrapping="Wrap"/>
+                            </ScrollViewer>
+                        </Grid>
+                    </Border>
+                </Grid>
+
+                <!-- SETTINGS VIEW -->
+                <StackPanel x:Name="ViewSettings" Margin="40" Visibility="Collapsed">
+                    <TextBlock Text="Configuración" FontSize="24" Margin="0,0,0,20"/>
+
+                    <TextBlock Text="Carpeta a Vigilar" Foreground="#AAAAAA" Margin="0,10,0,5"/>
+                    <TextBox x:Name="InputFolder" Height="30" Padding="5"/>
+                    
+                    <TextBlock Text="VirusTotal API Key" Foreground="#AAAAAA" Margin="0,15,0,5"/>
+                    <PasswordBox x:Name="InputApiKey" Height="30" Padding="5"/>
+
+                    <CheckBox x:Name="CheckStartOnBoot" Content="Iniciar con Windows" Margin="0,20,0,5" Foreground="White"/>
+                    <CheckBox x:Name="CheckStartMinimized" Content="Iniciar Minimizado" Margin="0,5,0,20" Foreground="White"/>
+
+                    <Button Content="GUARDAR CAMBIOS" Width="150" HorizontalAlignment="Left" Style="{StaticResource ActionBtn}" Click="BtnSaveSettings_Click"/>
+                </StackPanel>
+
+                <!-- HISTORY VIEW -->
+                <StackPanel x:Name="ViewHistory" Margin="40" Visibility="Collapsed">
+                     <TextBlock Text="Historial de Amenazas" FontSize="24" Margin="0,0,0,20"/>
+                     <ListBox x:Name="ListHistory" Background="#252526" BorderThickness="0" Foreground="#CCCCCC" Height="400"/>
+                </StackPanel>
+
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

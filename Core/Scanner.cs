@@ -11,11 +11,25 @@ using AntivirusScanner.Utils;
 
 namespace AntivirusScanner.Core
 {
+    public class ScanResult
+    {
+        public string FilePath { get; set; } = "";
+        public bool IsSafe { get; set; }
+        public bool IsSkipped { get; set; }
+        public string ThreatType { get; set; } = "";
+        public string Details { get; set; } = "";
+    }
+
     public class Scanner
     {
         private AppConfig _config;
         private static readonly HttpClient _client = new HttpClient();
         
+        // Events for UI
+        public event Action<string>? OnScanStarted;
+        public event Action<ScanResult>? OnScanCompleted;
+        public event Action<string>? OnThreatFound;
+
         // Firmas peligrosas (Magic Numbers)
         private static readonly Dictionary<string, (string Desc, string[] Exts)> Signatures = new()
         {
@@ -32,44 +46,67 @@ namespace AntivirusScanner.Core
             _config = config;
         }
 
-        public async Task RunScan()
+        public void UpdateConfig(AppConfig newConfig)
         {
-            Console.WriteLine($"\n🛡️  Iniciando escaneo en: {_config.TargetFolder}");
-            if (!Directory.Exists(_config.TargetFolder))
-            {
-                Console.WriteLine("❌ Carpeta no encontrada.");
-                return;
-            }
+            _config = newConfig;
+        }
+
+        public async Task RunFullScan()
+        {
+            if (!Directory.Exists(_config.TargetFolder)) return;
 
             var files = Directory.GetFiles(_config.TargetFolder);
-            var newFileStates = new Dictionary<string, FileState>();
             int threats = 0;
             int skipped = 0;
 
             foreach (var file in files)
             {
-                var fileInfo = new FileInfo(file);
-                
-                // 1. Capa Rápida (Metadatos)
-                if (_config.FileStates.TryGetValue(file, out var oldState))
+                var result = await ScanFile(file);
+                if (result.IsSkipped) skipped++;
+                if (!result.IsSafe) threats++;
+            }
+            
+            // Save state after full scan
+            SettingsManager.Save(_config);
+        }
+
+        public async Task<ScanResult> ScanFile(string filePath)
+        {
+            var result = new ScanResult { FilePath = filePath, IsSafe = true };
+            
+            if (!File.Exists(filePath)) return result;
+
+            try
+            {
+                var fileInfo = new FileInfo(filePath);
+                OnScanStarted?.Invoke(Path.GetFileName(filePath));
+
+                // 1. Capa Rápida (Cache Check)
+                if (_config.FileStates.TryGetValue(filePath, out var oldState))
                 {
                     if (oldState.LastModified == fileInfo.LastWriteTimeUtc && oldState.Size == fileInfo.Length)
                     {
-                        newFileStates[file] = oldState; // Intacto
-                        skipped++;
-                        continue;
+                        if (oldState.Status == "SAFE")
+                        {
+                            result.IsSkipped = true;
+                            // Still valid safe file
+                            OnScanCompleted?.Invoke(result);
+                            return result;
+                        }
                     }
                 }
 
-                Console.WriteLine($"🔎 Analizando: {Path.GetFileName(file)}...");
+                Console.WriteLine($"🔎 Analizando: {Path.GetFileName(filePath)}...");
                 
                 // Calcular Hash
-                string hash = ComputeSha256(file);
-                if (string.IsNullOrEmpty(hash)) continue;
+                string hash = ComputeSha256(filePath);
+                if (string.IsNullOrEmpty(hash)) return result;
 
                 bool isSafe = false;
+                bool suspicious = false;
+                string reason = "";
 
-                // 2. Capa Histórica
+                // 2. Capa Histórica (Known Hash)
                 if (_config.HashHistory.TryGetValue(hash, out var status) && status == "SAFE")
                 {
                     isSafe = true;
@@ -77,12 +114,10 @@ namespace AntivirusScanner.Core
                 else
                 {
                     // 3. Análisis Profundo
-                    bool suspicious = false;
-                    string reason = "";
-
+                    
                     // A. Análisis Local (Firmas)
-                    string magic = GetMagicNumber(file);
-                    string ext = Path.GetExtension(file).ToLower();
+                    string magic = GetMagicNumber(filePath);
+                    string ext = Path.GetExtension(filePath).ToLower();
 
                     foreach (var sig in Signatures)
                     {
@@ -118,40 +153,52 @@ namespace AntivirusScanner.Core
                             _config.HashHistory[hash] = "SAFE";
                         }
                     }
-
-                    if (suspicious)
+                    else if (!suspicious)
                     {
-                        Console.WriteLine($"🚨 AMENAZA DETECTADA: {reason}");
-                        MoveToQuarantine(file, reason);
-                        threats++;
-                        MessageBox.Show($"Amenaza detectada:\n{Path.GetFileName(file)}\n\nMotivo: {reason}\n\nMovido a Cuarentena.", "ALERTA VIRUS", MessageBoxButton.OK, MessageBoxImage.Warning);
-                        continue; // No agregamos a safe states
-                    }
-                    else
-                    {
-                        // Si pasó todas las pruebas y no es sospechoso, asumimos seguro por ahora
+                        // Si no hay API key y no detectamos nada raro localmente, asumimos seguro
                         isSafe = true;
-                         _config.HashHistory[hash] = "SAFE";
                     }
                 }
 
-                if (isSafe)
+                if (suspicious)
                 {
-                    newFileStates[file] = new FileState 
+                    result.IsSafe = false;
+                    result.ThreatType = "Malware/Spoofing";
+                    result.Details = reason;
+                    
+                    MoveToQuarantine(filePath, reason);
+                    OnThreatFound?.Invoke($"Amenaza: {Path.GetFileName(filePath)} ({reason})");
+                }
+                else
+                {
+                    result.IsSafe = true;
+                    _config.HashHistory[hash] = "SAFE";
+                }
+
+                // Update State
+                if (result.IsSafe && File.Exists(filePath)) // Check exists in case it was moved/deleted during scan
+                {
+                    _config.FileStates[filePath] = new FileState 
                     { 
                         LastModified = fileInfo.LastWriteTimeUtc, 
                         Size = fileInfo.Length, 
-                        Hash = hash 
+                        Hash = hash,
+                        Status = "SAFE"
                     };
                 }
+                
+                // Save state periodically or here? For safety, save config now if changed
+                if (!result.IsSkipped) SettingsManager.Save(_config);
+
+                OnScanCompleted?.Invoke(result);
+                return result;
+
             }
-
-            _config.FileStates = newFileStates;
-            SettingsManager.Save(_config);
-
-            Console.WriteLine($"\n✅ Escaneo completado.");
-            Console.WriteLine($"   - Saltados (Sin cambios): {skipped}");
-            Console.WriteLine($"   - Amenazas: {threats}");
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error scanning file: {ex.Message}");
+                return result;
+            }
         }
 
         private string ComputeSha256(string filePath)
@@ -172,6 +219,7 @@ namespace AntivirusScanner.Core
             {
                 using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
                 using var br = new BinaryReader(fs);
+                if (br.BaseStream.Length < 4) return "";
                 byte[] bytes = br.ReadBytes(4);
                 return BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
             }
@@ -190,9 +238,8 @@ namespace AntivirusScanner.Core
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return 0;
                 if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests) 
                 {
-                    Console.WriteLine("   ⏳ Límite API. Esperando 15s...");
-                    await Task.Delay(15000);
-                    return await CheckVirusTotal(hash, apiKey);
+                    await Task.Delay(5000); // Wait bit
+                    return -1; // Skip for now or retry logic
                 }
 
                 response.EnsureSuccessStatusCode();
@@ -202,9 +249,8 @@ namespace AntivirusScanner.Core
                 var stats = doc.RootElement.GetProperty("data").GetProperty("attributes").GetProperty("last_analysis_stats");
                 return stats.GetProperty("malicious").GetInt32();
             }
-            catch (Exception ex)
+            catch
             {
-                Console.WriteLine($"   ⚠️ Error VT: {ex.Message}");
                 return -1;
             }
         }
@@ -220,9 +266,11 @@ namespace AntivirusScanner.Core
                 string newName = $"{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}_{fileName}";
                 string destPath = Path.Combine(quarantineDir, newName);
 
+                // Ensure unique name
+                if (File.Exists(destPath)) destPath += ".virus";
+
                 File.Move(filePath, destPath);
                 
-                // Crear nota
                 File.WriteAllText(destPath + ".txt", $"Original: {filePath}\nDate: {DateTime.Now}\nReason: {reason}");
             }
             catch (Exception ex)
