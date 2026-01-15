@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Security.AccessControl;
 using System.Security.Cryptography;
 using System.Text;
 using System.Net.Http;
@@ -260,6 +261,30 @@ namespace AntivirusScanner.Core
 
                 File.Move(filePath, destPath);
                 
+                // Remove Permissions (Lock down the file)
+                try
+                {
+                    var fileInfo = new FileInfo(destPath);
+                    var security = fileInfo.GetAccessControl();
+                    
+                    // Disable inheritance and remove all existing rules
+                    security.SetAccessRuleProtection(true, false);
+                    
+                    // Add Read-Only access for the current user (Owner)
+                    var user = System.Security.Principal.WindowsIdentity.GetCurrent().Name;
+                    var rule = new FileSystemAccessRule(
+                        user, 
+                        FileSystemRights.ReadData, 
+                        AccessControlType.Allow);
+                        
+                    security.AddAccessRule(rule);
+                    fileInfo.SetAccessControl(security);
+                }
+                catch (Exception aclEx)
+                {
+                    Console.WriteLine($"Error cambiando permisos ACL: {aclEx.Message}");
+                }
+
                 File.WriteAllText(destPath + ".txt", $"Original: {filePath}\nDate: {DateTime.Now}\nReason: {reason}");
             }
             catch (Exception ex)
