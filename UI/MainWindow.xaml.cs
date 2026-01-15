@@ -29,7 +29,15 @@ namespace AntivirusScanner.UI
             try
             {
                 // Tray Icon from Exe
-                _notifyIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(System.Reflection.Assembly.GetExecutingAssembly().Location);
+                var exePath = Environment.ProcessPath;
+                if (!string.IsNullOrEmpty(exePath))
+                {
+                    _notifyIcon.Icon = System.Drawing.Icon.ExtractAssociatedIcon(exePath);
+                }
+                else 
+                {
+                    throw new Exception("Cannot determine exe path");
+                }
                 
                 // Window Icon from Resource (Safe Load)
                 this.Icon = System.Windows.Media.Imaging.BitmapFrame.Create(new Uri("pack://application:,,,/logo.png"));
