@@ -20,6 +20,7 @@
     *   Verifica **Firmas Mágicas (Magic Numbers)** para descubrir ejecutables disfrazados de imágenes o texto.
 3.  **Capa Nube (VirusTotal API)**:
     *   Consulta el hash del archivo contra más de 70 motores antivirus mundiales.
+    *   **Anti-Ban Inteligente**: Respeta automáticamente los límites de la cuenta gratuita (1 consulta cada 15s) para evitar bloqueos.
     *   *(Requiere API Key gratuita)*.
 
 ### 🖥️ Interfaz Premium (WPF)
@@ -75,6 +76,11 @@ Es un archivo de texto inofensivo, pero contiene una **cabecera falsa** que simu
 *   **Tus Datos**: Las API Keys se guardan localmente en tu PC (`%APPDATA%\TruelSigth`). No se envían a ningún servidor externo salvo a VirusTotal (solo los hashes de los archivos).
 *   **Cuarentena Segura**: Las amenazas detectadas se mueven a una carpeta aislada (`Quarantine`) y **se bloquean sus permisos (ACL)** automáticamente. 
     *   *Detalle Técnico:* El antivirus elimina todos los permisos de ejecución del archivo, dejándolo solo con permisos de lectura para el propietario. Esto evita que el malware se ejecute accidentalmente.
+
+## 🤝 Agradecimientos
+
+*   Desarrollado como proyecto educativo.
+*   Código refactorizado y optimizado con la asistencia de IA (**Antigravity**).
 
 ---
 *TruelSigth - Tu segunda opinión de confianza.*

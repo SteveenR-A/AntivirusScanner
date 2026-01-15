@@ -216,10 +216,26 @@ namespace AntivirusScanner.Core
             catch { return ""; }
         }
 
+        private static DateTime _lastRequest = DateTime.MinValue;
+
         private async Task<int> CheckVirusTotal(string hash, string apiKey)
         {
             try
             {
+                // Rate Limiting (Free Tier: 4 requests / minute => 1 request every 15s)
+                var timeSinceLast = DateTime.Now - _lastRequest;
+                if (timeSinceLast.TotalSeconds < 15)
+                {
+                    int delay = 15000 - (int)timeSinceLast.TotalMilliseconds;
+                    if (delay > 0) 
+                    {
+                        Console.WriteLine($"⏳ Esperando {delay/1000}s para respetar límite gratuito de VirusTotal...");
+                        await Task.Delay(delay);
+                    }
+                }
+
+                _lastRequest = DateTime.Now;
+
                 _client.DefaultRequestHeaders.Clear();
                 _client.DefaultRequestHeaders.Add("x-apikey", apiKey);
                 
@@ -228,8 +244,8 @@ namespace AntivirusScanner.Core
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return 0;
                 if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests) 
                 {
-                    await Task.Delay(5000); // Wait bit
-                    return -1; // Skip for now or retry logic
+                    await Task.Delay(10000); // Penalty wait
+                    return -1; 
                 }
 
                 response.EnsureSuccessStatusCode();
