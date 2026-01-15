@@ -4,7 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        Title="Steveen Antivirus" Height="600" Width="900"
+        Title="TruelSigth" Height="600" Width="900"
         WindowStartupLocation="CenterScreen"
         Background="#1E1E1E" Foreground="White"
         ResizeMode="CanResize">
@@ -71,7 +71,7 @@
         <!-- Sidebar -->
         <Border Grid.Column="0" Background="#252526" BorderBrush="#333333" BorderThickness="0,0,1,0">
             <StackPanel Margin="10,20,10,0">
-                <TextBlock Text="🛡️ STEVEEN AV" FontSize="18" FontWeight="Bold" Foreground="#00FFFF" Margin="10,0,0,30"/>
+                <TextBlock Text="🛡️ TRUELSIGTH AV" FontSize="18" FontWeight="Bold" Foreground="#00FFFF" Margin="10,0,0,30"/>
 
                 <Button Content="🏠   Dashboard" Style="{StaticResource NavButton}" Click="BtnDashboard_Click"/>
                 <Button Content="⚙️   Configuración" Style="{StaticResource NavButton}" Click="BtnSettings_Click"/>

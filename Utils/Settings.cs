@@ -34,7 +34,7 @@ namespace AntivirusScanner.Utils
             "AntivirusScanner"
         );
         private static readonly string ConfigFile = Path.Combine(ConfigDir, "config.json");
-        private const string RegistryKeyName = "AntivirusScannerV2";
+        private const string RegistryKeyName = "TruelSigth";
 
         public static AppConfig Load()
         {
@@ -51,6 +51,13 @@ namespace AntivirusScanner.Utils
             
             // Sync registry state
             config.StartOnBoot = IsAutoStartEnabled();
+            
+            // Set Default Folder if empty (First Run)
+            if (string.IsNullOrEmpty(config.TargetFolder))
+            {
+                config.TargetFolder = PathHelper.GetDownloadsFolder();
+            }
+
             return config;
         }
 

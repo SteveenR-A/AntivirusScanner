@@ -41,7 +41,7 @@ namespace AntivirusScanner.UI
             }
             
             _notifyIcon.Visible = true;
-            _notifyIcon.Text = "Steveen Antivirus - Protegido";
+            _notifyIcon.Text = "TruelSigth - Protegido";
             _notifyIcon.DoubleClick += (s, args) => ShowWindow();
             
             var contextMenu = new System.Windows.Forms.ContextMenuStrip();
@@ -160,14 +160,7 @@ namespace AntivirusScanner.UI
             Application.Current.Shutdown();
         }
 
-        protected override void OnStateChanged(EventArgs e)
-        {
-            if (WindowState == WindowState.Minimized)
-            {
-                Hide(); // Send to tray
-            }
-            base.OnStateChanged(e);
-        }
+
 
         protected override void OnClosing(CancelEventArgs e)
         {
@@ -175,7 +168,7 @@ namespace AntivirusScanner.UI
             {
                 e.Cancel = true; // Don't close
                 Hide(); // Just hide to tray
-                _notifyIcon.ShowBalloonTip(2000, "Steveen AV", "El antivirus sigue corriendo en segundo plano.", System.Windows.Forms.ToolTipIcon.Info);
+                _notifyIcon.ShowBalloonTip(2000, "TruelSigth", "El antivirus sigue corriendo en segundo plano.", System.Windows.Forms.ToolTipIcon.Info);
             }
             else
             {
@@ -195,11 +188,16 @@ namespace AntivirusScanner.UI
             ViewHistory.Visibility = Visibility.Collapsed;
         }
 
-        private void BtnSettings_Click(object sender, RoutedEventArgs e)
+        private void ShowSettings()
         {
             ViewDashboard.Visibility = Visibility.Collapsed;
             ViewSettings.Visibility = Visibility.Visible;
             ViewHistory.Visibility = Visibility.Collapsed;
+        }
+
+        private void BtnSettings_Click(object sender, RoutedEventArgs e)
+        {
+            ShowSettings();
         }
 
         private void BtnHistory_Click(object sender, RoutedEventArgs e)
@@ -220,12 +218,31 @@ namespace AntivirusScanner.UI
             _scanner.UpdateConfig(_config);
             _monitor.UpdateConfig(_config);
             
-            MessageBox.Show("Configuración guardada.", "Steveen AV", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Configuración guardada.", "TruelSigth", MessageBoxButton.OK, MessageBoxImage.Information);
             ShowDashboard();
         }
 
         private async void BtnScanNow_Click(object sender, RoutedEventArgs e)
         {
+            // Check for API Key
+            if (string.IsNullOrEmpty(_config.ApiKey))
+            {
+                var result = MessageBox.Show(
+                    "No has configurado una API Key de VirusTotal. \n\n" +
+                    "Sin ella, el escáner solo usará firmas locales y será menos efectivo.\n" +
+                    "¿Quieres ir a Configuración para añadir una ahora?\n\n" +
+                    "(Selecciona 'No' para escanear de todas formas)",
+                    "Recomendación de Seguridad",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Warning);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    ShowSettings(); // Switch to settings view
+                    return;
+                }
+            }
+
             var btn = (Button)sender;
             btn.IsEnabled = false;
             btn.Content = "Analizando...";
