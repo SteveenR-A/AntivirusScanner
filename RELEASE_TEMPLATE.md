@@ -19,3 +19,4 @@ Este es un antivirus de código abierto diseñado para estudiantes y usuarios qu
 4.  *(Opcional)* Configura tu API Key de VirusTotal para máxima protección.
 
 > 🎓 **Nota:** Proyecto educativo. Úsalo bajo tu propia responsabilidad.
+a
