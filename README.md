@@ -2,7 +2,7 @@
 
 **TruelSigth** es una solución de seguridad moderna y ligera desarrollada en **C# (.NET 10)**. Diseñada para ofrecer una segunda capa de protección robusta, combina análisis heurístico local con la inteligencia en la nube de **VirusTotal**.
 
-![Status](https://img.shields.io/badge/status-Active-brightgreen) ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![License](https://img.shields.io/badge/license-OS--Privado-orange) ![Type](https://img.shields.io/badge/Project-Educational-yellow)
+![Status](https://img.shields.io/badge/status-Active-brightgreen) ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Type](https://img.shields.io/badge/Project-Educational-yellow)
 
 > 🎓 **Nota:** Este es un proyecto desarrollado con fines **académicos y de aprendizaje**. No está afiliado a ninguna marca comercial.
 
