@@ -41,6 +41,7 @@ Este proyecto se distribuye como **Código Fuente** para que puedas estudiar su 
 2.  **Compilar**:
     Abre una terminal en la carpeta y ejecuta:
     ```powershell
+    dotnet build -c Release
     dotnet run --project AntivirusScanner.csproj
     ```
 3.  **Configurar**:

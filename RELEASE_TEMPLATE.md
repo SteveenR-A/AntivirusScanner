@@ -19,7 +19,11 @@ Este lanzamiento es **Solo Código Fuente** (Source Code Only).
 
 1.  Descarga el código fuente (`Source code (zip)` abajo).
 2.  Asegúrate de tener instalado el [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
-3.  Descomprime y ejecuta en tu terminal: `dotnet run` dentro de la carpeta.
+3.  Descomprime y ejecuta en tu terminal:
+    ```powershell
+    dotnet build -c Release
+    dotnet run
+    ```
 4.  Configura tu API Key y ¡listo!
 
 ## 📝 Notas Técnicas
