@@ -1,67 +1,67 @@
 # 🛡️ TrueSight Scanner (Educational)
 
-**TrueSight** es un **motor de escaneo básico** desarrollado en **C# (.NET 10)** con fines educativos. Su objetivo es demostrar conceptos de seguridad informática como la verificación de integridad de archivos y la integración con APIs de inteligencia de amenazas.
+**TrueSight** is a **basic scanning engine** developed in **C# (.NET 10)** for educational purposes. Its goal is to demonstrate cybersecurity concepts such as file integrity verification and integration with threat intelligence APIs.
 
 > [!WARNING]
-> **Aviso Importante:** Este proyecto es una **Prueba de Concepto (PoC)** educativa. **NO es un sustituto de un antivirus comercial** (como Windows Defender, Kaspersky, etc.). No tiene capacidad de eliminar virus activos en memoria ni analizar el código interno de los archivos (análisis heurístico avanzado). Úsalo como una "segunda opinión" para archivos sospechosos.
+> **Important Notice:** This project is an educational **Proof of Concept (PoC)**. It is **NOT a substitute for a commercial antivirus** (like Windows Defender, Kaspersky, etc.). It does not have the capability to remove active viruses from memory nor analyze internal file code (advanced heuristic analysis). Use it as a "second opinion" for suspicious files.
 
 ![Status](https://img.shields.io/badge/status-Educational-yellow) ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-## ✨ Capacidades del Motor
+## ✨ Engine Capabilities
 
-A diferencia de un antivirus tradicional, TrueSight funciona como un **verificador de metadatos y reputación**:
+Unlike a traditional antivirus, TrueSight functions as a **metadata and reputation checker**:
 
-### 1. � Análisis Estático (Anti-Spoofing)
-Verifica que los archivos sean lo que dicen ser, previniendo trucos comunes de inyección:
-- **Doble Extensión**: Detecta trampas como `factura.pdf.exe`.
-- **Magic Numbers**: Compara la cabecera real del archivo (bytes iniciales) con su extensión. Si un archivo dice ser `.jpg` pero su cabecera es de un ejecutable (`MZ`), TrueSight lo bloqueará.
+### 1. 🔍 Static Analysis (Anti-Spoofing)
+Verifies that files are what they claim to be, preventing common injection tricks:
+- **Double Extension**: Detects traps like `invoice.pdf.exe`.
+- **Magic Numbers**: Compares the actual file header (initial bytes) with its extension. If a file claims to be `.jpg` but its header is from an executable (`MZ`), TrueSight will block it.
 
-### 2. ☁️ Reputación en la Nube (VirusTotal)
-Si el archivo pasa el análisis estático pero es desconocido:
-- Calcula el **Hash SHA-256** del archivo.
-- Consulta la base de datos de **VirusTotal** (requiere API Key).
-- **Nota sobre API Gratuita**: El sistema respeta automáticamente el límite de **4 peticiones por minuto** (1 cada 15 seg) de las cuentas gratuitas para evitar bloqueos.
-- Si más de un motor en VirusTotal lo marca como malicioso, TrueSight te alertará.
+### 2. ☁️ Cloud Reputation (VirusTotal)
+If the file passes static analysis but is unknown:
+- Calculates the **SHA-256 Hash** of the file.
+- Queries the **VirusTotal** database (API Key required).
+- **Free API Note**: The system automatically respects the **4 requests per minute** limit (1 every 15 sec) of free accounts to avoid blocks.
+- If more than one engine in VirusTotal marks it as malicious, TrueSight will alert you.
 
-### 3. �️ Monitor de Carpetas
-- Vigila una carpeta específica (ej. *Descargas*) en busca de nuevos archivos.
-- Intercepta archivos recién creados para un análisis rápido antes de que los abras.
+### 3. 🛡️ Folder Monitor
+- Watches a specific folder (e.g., *Downloads*) for new files.
+- Intercepts newly created files for a quick scan before you open them.
 
-## 🚀 Instalación y Uso
+## 🚀 Installation & Usage
 
-### Requisitos
-- **Windows 10 o 11**.
-- **.NET 10 SDK**: [Descargar .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0).
-- **API Key de VirusTotal**: (Gratuita en [virustotal.com](https://www.virustotal.com)).
+### Requirements
+- **Windows 10 or 11**.
+- **.NET 10 SDK**: [Download .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0).
+- **VirusTotal API Key**: (Free at [virustotal.com](https://www.virustotal.com)).
 
-### 🛠️ Compilación y Ejecución
-Este proyecto se distribuye como **Código Fuente** para que puedas estudiar su funcionamiento.
+### 🛠️ Compilation & Execution
+This project is distributed as **Source Code** so you can study how it works.
 
-1.  **Clonar/Descargar**: Baja el código (botón `Code` -> `Download ZIP`).
-2.  **Compilar**:
-    Abre una terminal en la carpeta y ejecuta:
+1.  **Clone/Download**: Download the code (button `Code` -> `Download ZIP`).
+2.  **Compile**:
+    Open a terminal in the folder and run:
     ```powershell
     dotnet build -c Release
     dotnet run --project AntivirusScanner.csproj
     ```
-3.  **Configurar**:
-    La aplicación se iniciará. Ve a **Configuración** e ingresa tu API Key.
+3.  **Configure**:
+    The application will start. Go to **Settings** and enter your API Key.
 
-## 🧪 Probando la Detección
+## 🧪 Testing Detection
 
-El proyecto incluye un archivo `test_threat.txt`. Este archivo es inofensivo pero tiene una cabecera manipulada para simular un ejecutable (`MZ...`).
-- Al intentar escanearlo, TrueSight detectará que su contenido (parece EXE) no coincide con su extensión (.txt), probando la funcionalidad de **Anti-Spoofing**.
+The project includes a file named `test_threat.txt`. This file is harmless but contains a manipulated header to simulate an executable (`MZ...`).
+- When attempting to scan it, TrueSight will detect that its content (looks like an EXE) does not match its extension (.txt), testing the **Anti-Spoofing** functionality.
 
-## ⚠️ Limitaciones Técnicas
-Para evitar malentendidos (y "funas"):
-*   **No escanea memoria RAM**: Solo archivos en disco.
-*   **No tiene base de firmas propia**: Depende 100% de VirusTotal para detectar malware conocido.
-*   **Escaneo superficial**: Si un virus está encriptado o es completamente nuevo (Día 0) y tiene los metadatos correctos, TrueSight no lo detectará hasta que VirusTotal lo reconozca.
+## ⚠️ Technical Limitations
+To avoid misunderstandings:
+*   **No RAM scanning**: Only files on disk.
+*   **No internal signature database**: Relies 100% on VirusTotal to detect known malware.
+*   **Superficial scanning**: If a virus is encrypted or completely new (Zero-Day) and has correct metadata, TrueSight will not detect it until VirusTotal recognizes it.
 
-## 🔒 Privacidad
-*   Las API Keys se guardan localmente.
-*   Solo se envían **Hashes** (huellas digitales) a VirusTotal, nunca tus archivos completos.
+## 🔒 Privacy
+*   API Keys are stored locally.
+*   Only **Hashes** (digital fingerprints) are sent to VirusTotal, never your full files.
 
-## 🤝 Créditos
-Desarrollado como proyecto de aprendizaje sobre sistemas de archivos y APIs REST en .NET.
-Refactorizado con asistencia de IA.
+## 🤝 Credits
+Developed as a learning project on file systems and REST APIs in .NET.
+Refactored with AI assistance.
