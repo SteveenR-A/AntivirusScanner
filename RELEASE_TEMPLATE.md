@@ -1,21 +1,30 @@
-# TrueSight Antivirus v1.0.0 🛡️
+# TrueSight Scanner v1.0.0 (Educational Release) 🛡️
 
-¡El primer lanzamiento oficial de **TrueSight** ya está aquí! 🚀
+¡Primera versión pública de **TrueSight Scanner**! 🚀
 
-Este es un antivirus de código abierto diseñado para estudiantes y usuarios que buscan una capa extra de seguridad en Windows.
+Este proyecto es una **herramienta educativa de escaneo de archivos** diseñada para demostrar cómo funcionan las verificaciones de integridad y la reputación en la nube.
 
-## ✨ Novedades
-*   **Protección en Tiempo Real:** Monitoreo activo de la carpeta Descargas.
-*   **Motor Híbrido:** Combinación de firmas locales, anti-spoofing y VirusTotal.
-*   **Anti-Ban:** Sistema de colas inteligente que respeta los límites de la API gratuita (1 petición cada 15s).
-*   **UI Premium:** Interfaz oscura moderna (WPF) con dashboard y estadísticas.
-*   **Seguridad:** Bloqueo automático de permisos (ACL) para amenazas en cuarentena.
-*   **Portátil:** Ejecutable único sin instalación compleja.
+> [!WARNING]
+> **Prueba de Concepto**: Este software no sustituye a tu antivirus principal. Úsalo para verificar archivos sospechosos manualmente o monitorear descargas.
 
-## 📦 Instalación
-1.  Descarga el archivo `TrueSight_v1.0.zip` de abajo.
-2.  Descomprímelo en una carpeta.
-3.  Ejecuta `TrueSight.exe`.
-4.  *(Opcional)* Configura tu API Key de VirusTotal para máxima protección.
+## ✨ Funcionalidades
+*   **Anti-Spoofing:** Detecta archivos con "doble extensión" o cabeceras falsas (ej. un `.exe` disfrazado de `.txt`).
+*   **Integración VirusTotal:** Consulta hashes en la nube para detectar malware conocido.
+*   **Smart Rate-Limit:** Respeta automáticamente el límite de la API gratuita de VirusTotal (4 peticiones/minuto).
+*   **UI Educativa:** Interfaz WPF moderna para visualizar los procesos de detección.
+*   **Cuarentena:** Aísla archivos detectados quitándoles permisos de ejecución (ACL).
 
-> 🎓 **Nota:** Proyecto educativo. Úsalo bajo tu propia responsabilidad.
+## 📦 Cómo Probarlo
+Este lanzamiento es **Solo Código Fuente** (Source Code Only).
+
+1.  Descarga el código fuente (`Source code (zip)` abajo).
+2.  Asegúrate de tener instalado el [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+3.  Descomprime y ejecuta en tu terminal: `dotnet run` dentro de la carpeta.
+4.  Configura tu API Key y ¡listo!
+
+## 📝 Notas Técnicas
+*   Requiere **Windows 10/11**.
+*   **Limitaciones:** No escanea memoria, no elimina virus activos, solo analiza archivos estáticos.
+
+---
+*Desarrollado con fines de aprendizaje.*

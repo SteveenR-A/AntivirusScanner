@@ -31,24 +31,20 @@ Si el archivo pasa el análisis estático pero es desconocido:
 
 ### Requisitos
 - **Windows 10 o 11**.
-- **.NET 10 SDK/Runtime**: Puedes descargarlo desde el [sitio oficial de Microsoft](https://dotnet.microsoft.com/download/dotnet/10.0).
-- **API Key de VirusTotal**: Necesaria para la funcionalidad de detección de malware real. (Gratuita en [virustotal.com](https://www.virustotal.com)).
+- **.NET 10 SDK**: [Descargar .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0).
+- **API Key de VirusTotal**: (Gratuita en [virustotal.com](https://www.virustotal.com)).
 
-### Compilación y Ejecución Local
-Si deseas compilar el código fuente tú mismo:
+### 🛠️ Compilación y Ejecución
+Este proyecto se distribuye como **Código Fuente** para que puedas estudiar su funcionamiento.
 
-1.  **Clonar/Descargar**: Descarga este repositorio en tu PC.
-2.  **Abrir Terminal**: Abre PowerShell o CMD en la carpeta del proyecto.
-3.  **Compilar**: Ejecuta el siguiente comando para restaurar dependencias y compilar:
-    ```powershell
-    dotnet build -c Release
-    ```
-4.  **Ejecutar**:
+1.  **Clonar/Descargar**: Baja el código (botón `Code` -> `Download ZIP`).
+2.  **Compilar**:
+    Abre una terminal en la carpeta y ejecuta:
     ```powershell
     dotnet run --project AntivirusScanner.csproj
     ```
-3.  Ve a **Configuración** e introduce tu API Key.
-4.  Activa el monitor para vigilar tu carpeta de descargas.
+3.  **Configurar**:
+    La aplicación se iniciará. Ve a **Configuración** e ingresa tu API Key.
 
 ## 🧪 Probando la Detección
 
