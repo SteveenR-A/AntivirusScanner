@@ -1,86 +1,59 @@
-# 🛡️ TrueSight Antivirus
+# 🛡️ TrueSight Scanner (Educational)
 
-**TrueSight** es una solución de seguridad moderna y ligera desarrollada en **C# (.NET 10)**. Diseñada para ofrecer una segunda capa de protección robusta, combina análisis heurístico local con la inteligencia en la nube de **VirusTotal**.
+**TrueSight** es un **motor de escaneo básico** desarrollado en **C# (.NET 10)** con fines educativos. Su objetivo es demostrar conceptos de seguridad informática como la verificación de integridad de archivos y la integración con APIs de inteligencia de amenazas.
 
-![Status](https://img.shields.io/badge/status-Active-brightgreen) ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Type](https://img.shields.io/badge/Project-Educational-yellow)
+> [!WARNING]
+> **Aviso Importante:** Este proyecto es una **Prueba de Concepto (PoC)** educativa. **NO es un sustituto de un antivirus comercial** (como Windows Defender, Kaspersky, etc.). No tiene capacidad de eliminar virus activos en memoria ni analizar el código interno de los archivos (análisis heurístico avanzado). Úsalo como una "segunda opinión" para archivos sospechosos.
 
-> 🎓 **Nota:** Este es un proyecto desarrollado con fines **académicos y de aprendizaje**. No está afiliado a ninguna marca comercial.
+![Status](https://img.shields.io/badge/status-Educational-yellow) ![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-## ✨ Características Principales
+## ✨ Capacidades del Motor
 
-### 🛡️ Protección en Tiempo Real
-- **Monitor Activo**: Vigila tu carpeta seleccionada (por defecto *Descargas*) las 24 horas del día.
-- **Intercepción Inmediata**: Detecta nuevos archivos al instante de ser creados o modificados.
-- **Bajo Consumo**: Se minimiza en la bandeja del sistema (reloj) consumiendo recursos mínimos mientras te protege.
+A diferencia de un antivirus tradicional, TrueSight funciona como un **verificador de metadatos y reputación**:
 
-### 🧠 Motor de Análisis Híbrido
-1.  **Capa Rápida (Caché)**: Recuerda archivos analizados previamente para no gastar CPU innecesariamente.
-2.  **Capa Local (Anti-Spoofing)**:
-    *   Detecta **"Extensiones Dobles"** falsas (ej: `factura.pdf.exe`).
-    *   Verifica **Firmas Mágicas (Magic Numbers)** para descubrir ejecutables disfrazados de imágenes o texto.
-3.  **Capa Nube (VirusTotal API)**:
-    *   Consulta el hash del archivo contra más de 70 motores antivirus mundiales.
-    *   **Anti-Ban Inteligente**: Respeta automáticamente los límites de la cuenta gratuita (1 consulta cada 15s) para evitar bloqueos.
-    *   *(Requiere API Key gratuita)*.
+### 1. � Análisis Estático (Anti-Spoofing)
+Verifica que los archivos sean lo que dicen ser, previniendo trucos comunes de inyección:
+- **Doble Extensión**: Detecta trampas como `factura.pdf.exe`.
+- **Magic Numbers**: Compara la cabecera real del archivo (bytes iniciales) con su extensión. Si un archivo dice ser `.jpg` pero su cabecera es de un ejecutable (`MZ`), TrueSight lo bloqueará.
 
-### 🖥️ Interfaz Premium (WPF)
-- Diseño moderno "Dark Mode" con efectos visuales.
-- Dashboard intuitivo con estado de protección y estadísticas.
-- Historial de amenazas detectadas.
-- Configuración persistente (Inicio con Windows, Minimizado, etc.).
+### 2. ☁️ Reputación en la Nube (VirusTotal)
+Si el archivo pasa el análisis estático pero es desconocido:
+- Calcula el **Hash SHA-256** del archivo.
+- Consulta la base de datos de **VirusTotal** (requiere API Key).
+- Si más de un motor en VirusTotal lo marca como malicioso, TrueSight te alertará.
+
+### 3. �️ Monitor de Carpetas
+- Vigila una carpeta específica (ej. *Descargas*) en busca de nuevos archivos.
+- Intercepta archivos recién creados para un análisis rápido antes de que los abras.
 
 ## 🚀 Instalación y Uso
 
-Este es un proyecto de **Código Abierto** (actualmente en fase privada). Para usarlo:
-
 ### Requisitos
-- **Windows 10 o 11** (64 bits).
-- **.NET 10 Runtime** (si no usas la versión autocontenida).
+- **Windows 10 o 11**.
+- **.NET 10 Runtime** (o usar versión autocontenida).
+- **API Key de VirusTotal**: Necesaria para la funcionalidad de detección de malware real. (Gratuita en [virustotal.com](https://www.virustotal.com)).
 
-### Compilación (para Desarrolladores)
-1.  Clona este repositorio.
-2.  Abre el proyecto en tu terminal o Visual Studio.
-3.  Compila y ejecuta:
-    ```powershell
-    dotnet build -c Release
-    dotnet run
-    ```
+### Ejecución
+1.  Compila o descarga la aplicación.
+2.  Ejecuta `AntivirusScanner.exe`.
+3.  Ve a **Configuración** e introduce tu API Key.
+4.  Activa el monitor para vigilar tu carpeta de descargas.
 
-### Primeros Pasos
-1.  **Inicia la App**: Verás el Dashboard principal.
-2.  **Configura tu API Key**:
-    *   Ve a *Configuración*.
-    *   Ingresa tu API Key de VirusTotal (puedes obtener una gratis en [virustotal.com](https://www.virustotal.com)).
-    *   *Nota:* Sin la Key, la app funcionará pero solo con detección local (Spoofing).
-3.  **Activa el Monitor**: Asegúrate de que el interruptor esté en **"ON"**.
-4.  **Siéntete Seguro**: Minimiza la ventana. TrueSight seguirá trabajando desde la barra de tareas.
+## 🧪 Probando la Detección
 
-## ⚠️ Limitaciones Actuales
+El proyecto incluye un archivo `test_threat.txt`. Este archivo es inofensivo pero tiene una cabecera manipulada para simular un ejecutable (`MZ...`).
+- Al intentar escanearlo, TrueSight detectará que su contenido (parece EXE) no coincide con su extensión (.txt), probando la funcionalidad de **Anti-Spoofing**.
 
-*   **API Key Requerida**: Para la máxima protección (detección de virus complejos), es indispensable la conexión a VirusTotal.
-*   **Enfoque de Carpeta**: Actualmente diseñado para monitorear una carpeta crítica (ej. Descargas), no todo el disco duro simultáneamente (para optimizar rendimiento).
-*   **Plataforma**: Exclusivo para Windows (WPF).
+## ⚠️ Limitaciones Técnicas
+Para evitar malentendidos (y "funas"):
+*   **No escanea memoria RAM**: Solo archivos en disco.
+*   **No tiene base de firmas propia**: Depende 100% de VirusTotal para detectar malware conocido.
+*   **Escaneo superficial**: Si un virus está encriptado o es completamente nuevo (Día 0) y tiene los metadatos correctos, TrueSight no lo detectará hasta que VirusTotal lo reconozca.
 
-## 🧪 Cómo Probar la Detección (Sin Riesgos)
+## 🔒 Privacidad
+*   Las API Keys se guardan localmente.
+*   Solo se envían **Hashes** (huellas digitales) a VirusTotal, nunca tus archivos completos.
 
-El proyecto incluye un archivo llamado `test_threat.txt` para verificar que el antivirus funciona correctamente sin infectar tu PC.
-
-### ¿Cómo funciona este archivo?
-Es un archivo de texto inofensivo, pero contiene una **cabecera falsa** que simula ser un ejecutable (`MZ...`).
-1.  **El Engaño**: Windows cree que es texto (`.txt`), pero TrueSight lee sus primeros bytes y ve que dice ser un programa (`.exe`).
-2.  **La Detección**: Al notar que la extensión no coincide con su contenido real, el motor **Anti-Spoofing** lo marca como una amenaza de "Doble Extensión" o "Ejecutable Oculto".
-3.  **La Prueba**: Copia este archivo a tu carpeta de Descargas (con el monitor activo) y verás cómo es interceptado y enviado a cuarentena al instante.
-
-## 🔒 Privacidad y Seguridad
-
-*   **Tus Datos**: Las API Keys se guardan localmente en tu PC (`%APPDATA%\TrueSight`). No se envían a ningún servidor externo salvo a VirusTotal (solo los hashes de los archivos).
-*   **Cuarentena Segura**: Las amenazas detectadas se mueven a una carpeta aislada (`Quarantine`) y **se bloquean sus permisos (ACL)** automáticamente. 
-    *   *Detalle Técnico:* El antivirus elimina todos los permisos de ejecución del archivo, dejándolo solo con permisos de lectura para el propietario. Esto evita que el malware se ejecute accidentalmente.
-
-## 🤝 Agradecimientos
-
-*   Desarrollado como proyecto educativo.
-*   Código refactorizado y optimizado con la asistencia de IA (**Antigravity**).
-
----
-*TruelSigth - Tu segunda opinión de confianza.*
+## 🤝 Créditos
+Desarrollado como proyecto de aprendizaje sobre sistemas de archivos y APIs REST en .NET.
+Refactorizado con asistencia de IA.
