@@ -10,6 +10,7 @@
     <Configurations>Debug;Release</Configurations>
     <!-- Asegurar que solo corra en Windows -->
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <AssemblyName>TrueSight</AssemblyName>
   </PropertyGroup>
 

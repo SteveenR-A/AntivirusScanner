@@ -74,11 +74,11 @@ namespace AntivirusScanner.UI
             _scanner.OnScanCompleted += result =>
             {
                  Dispatcher.Invoke(() => {
-                     if (!result.IsSafe && !result.IsSkipped)
+                     if (!result.IsSafe && result.Status != ScanStatus.Skipped)
                      {
                          // Already logged by threat found
                      }
-                     else if (!result.IsSkipped)
+                     else if (result.Status != ScanStatus.Skipped)
                      {
                          LogActivity($"✅ Analizado: {System.IO.Path.GetFileName(result.FilePath)} (Seguro)");
                      }
