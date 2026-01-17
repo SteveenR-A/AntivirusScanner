@@ -20,6 +20,7 @@ Verifica que los archivos sean lo que dicen ser, previniendo trucos comunes de i
 Si el archivo pasa el análisis estático pero es desconocido:
 - Calcula el **Hash SHA-256** del archivo.
 - Consulta la base de datos de **VirusTotal** (requiere API Key).
+- **Nota sobre API Gratuita**: El sistema respeta automáticamente el límite de **4 peticiones por minuto** (1 cada 15 seg) de las cuentas gratuitas para evitar bloqueos.
 - Si más de un motor en VirusTotal lo marca como malicioso, TrueSight te alertará.
 
 ### 3. �️ Monitor de Carpetas
@@ -30,12 +31,22 @@ Si el archivo pasa el análisis estático pero es desconocido:
 
 ### Requisitos
 - **Windows 10 o 11**.
-- **.NET 10 Runtime** (o usar versión autocontenida).
+- **.NET 10 SDK/Runtime**: Puedes descargarlo desde el [sitio oficial de Microsoft](https://dotnet.microsoft.com/download/dotnet/10.0).
 - **API Key de VirusTotal**: Necesaria para la funcionalidad de detección de malware real. (Gratuita en [virustotal.com](https://www.virustotal.com)).
 
-### Ejecución
-1.  Compila o descarga la aplicación.
-2.  Ejecuta `AntivirusScanner.exe`.
+### Compilación y Ejecución Local
+Si deseas compilar el código fuente tú mismo:
+
+1.  **Clonar/Descargar**: Descarga este repositorio en tu PC.
+2.  **Abrir Terminal**: Abre PowerShell o CMD en la carpeta del proyecto.
+3.  **Compilar**: Ejecuta el siguiente comando para restaurar dependencias y compilar:
+    ```powershell
+    dotnet build -c Release
+    ```
+4.  **Ejecutar**:
+    ```powershell
+    dotnet run --project AntivirusScanner.csproj
+    ```
 3.  Ve a **Configuración** e introduce tu API Key.
 4.  Activa el monitor para vigilar tu carpeta de descargas.
 
