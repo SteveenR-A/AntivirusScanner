@@ -48,12 +48,12 @@ namespace AntivirusScanner.UI
             }
             
             _notifyIcon.Visible = true;
-            _notifyIcon.Text = "TrueSight - Protegido";
+            _notifyIcon.Text = "TrueSight - Protected";
             _notifyIcon.DoubleClick += (s, args) => ShowWindow();
             
             var contextMenu = new System.Windows.Forms.ContextMenuStrip();
-            contextMenu.Items.Add("Abrir", null, (s, e) => ShowWindow());
-            contextMenu.Items.Add("Salir", null, (s, e) => FullExit());
+            contextMenu.Items.Add("Open", null, (s, e) => ShowWindow());
+            contextMenu.Items.Add("Exit", null, (s, e) => FullExit());
             _notifyIcon.ContextMenuStrip = contextMenu;
 
             // Load logic
@@ -67,7 +67,7 @@ namespace AntivirusScanner.UI
                 Dispatcher.Invoke(() => {
                    LogActivity($"🚨 {msg}");
                    ListHistory.Items.Insert(0, $"{DateTime.Now}: {msg}");
-                   _notifyIcon.ShowBalloonTip(3000, "AMENAZA DETECTADA", msg, System.Windows.Forms.ToolTipIcon.Warning);
+                   _notifyIcon.ShowBalloonTip(3000, "THREAT DETECTED", msg, System.Windows.Forms.ToolTipIcon.Warning);
                 });
             };
 
@@ -80,9 +80,9 @@ namespace AntivirusScanner.UI
                      }
                      else if (result.Status != ScanStatus.Skipped)
                      {
-                         LogActivity($"✅ Analizado: {System.IO.Path.GetFileName(result.FilePath)} (Seguro)");
+                         LogActivity($"✅ Scanned: {System.IO.Path.GetFileName(result.FilePath)} (Safe)");
                      }
-                     TxtLastScan.Text = $"Último análisis: {DateTime.Now.ToShortTimeString()}";
+                     TxtLastScan.Text = $"Last scan: {DateTime.Now.ToShortTimeString()}";
                  });
             };
 
@@ -115,14 +115,14 @@ namespace AntivirusScanner.UI
             {
                 ToggleMonitor.Content = "ON";
                 ToggleMonitor.IsChecked = true;
-                TxtStatusSidebar.Text = "🟢 Protegido";
+                TxtStatusSidebar.Text = "🟢 Protected";
                 TxtStatusSidebar.Foreground = System.Windows.Media.Brushes.Lime;
             }
             else
             {
                 ToggleMonitor.Content = "OFF";
                 ToggleMonitor.IsChecked = false;
-                TxtStatusSidebar.Text = "⚠️ Detenido";
+                TxtStatusSidebar.Text = "⚠️ Stopped";
                 TxtStatusSidebar.Foreground = System.Windows.Media.Brushes.Yellow;
             }
         }
@@ -175,7 +175,7 @@ namespace AntivirusScanner.UI
             {
                 e.Cancel = true; // Don't close
                 Hide(); // Just hide to tray
-                _notifyIcon.ShowBalloonTip(2000, "TrueSight", "El antivirus sigue corriendo en segundo plano.", System.Windows.Forms.ToolTipIcon.Info);
+                _notifyIcon.ShowBalloonTip(2000, "TrueSight", "Antivirus is running in background.", System.Windows.Forms.ToolTipIcon.Info);
             }
             else
             {
@@ -225,7 +225,7 @@ namespace AntivirusScanner.UI
             _scanner.UpdateConfig(_config);
             _monitor.UpdateConfig(_config);
             
-            MessageBox.Show("Configuración guardada.", "TrueSight", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("Settings saved.", "TrueSight", MessageBoxButton.OK, MessageBoxImage.Information);
             ShowDashboard();
         }
 
@@ -235,11 +235,11 @@ namespace AntivirusScanner.UI
             if (string.IsNullOrEmpty(_config.ApiKey))
             {
                 var result = MessageBox.Show(
-                    "No has configurado una API Key de VirusTotal. \n\n" +
-                    "Sin ella, el escáner solo usará firmas locales y será menos efectivo.\n" +
-                    "¿Quieres ir a Configuración para añadir una ahora?\n\n" +
-                    "(Selecciona 'No' para escanear de todas formas)",
-                    "Recomendación de Seguridad",
+                    "You have not configured a VirusTotal API Key. \n\n" +
+                    "Without it, the scanner will use local signatures only and be less effective.\n" +
+                    "Do you want to go to Settings to add one now?\n\n" +
+                    "(Select 'No' to scan anyway)",
+                    "Security Recommendation",
                     MessageBoxButton.YesNo,
                     MessageBoxImage.Warning);
 
@@ -252,14 +252,14 @@ namespace AntivirusScanner.UI
 
             var btn = (Button)sender;
             btn.IsEnabled = false;
-            btn.Content = "Analizando...";
+            btn.Content = "Scanning...";
             
-            LogActivity("⏳ Iniciando escaneo completo...");
+            LogActivity("⏳ Starting full scan...");
             await System.Threading.Tasks.Task.Run(() => _scanner.RunFullScan());
             
-            btn.Content = "ESCANEAR TODO AHORA";
+            btn.Content = "SCAN ALL NOW";
             btn.IsEnabled = true;
-            LogActivity("🏁 Escaneo completo finalizado.");
+            LogActivity("🏁 Full scan completed.");
         }
 
         private void ShowDashboard()

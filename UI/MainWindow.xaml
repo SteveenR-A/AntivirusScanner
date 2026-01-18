@@ -76,17 +76,17 @@
                 <TextBlock Text="🛡️ TRUESIGHT AV" FontSize="18" FontWeight="Bold" Foreground="#00FFFF" Margin="10,0,0,30"/>
 
                 <Button Content="🏠   Dashboard" Style="{StaticResource NavButton}" Click="BtnDashboard_Click"/>
-                <Button Content="⚙️   Configuración" Style="{StaticResource NavButton}" Click="BtnSettings_Click"/>
-                <Button Content="📜   Historial" Style="{StaticResource NavButton}" Click="BtnHistory_Click"/>
+                <Button Content="⚙️   Settings" Style="{StaticResource NavButton}" Click="BtnSettings_Click"/>
+                <Button Content="📜   History" Style="{StaticResource NavButton}" Click="BtnHistory_Click"/>
                 
                 <Separator Background="#444444" Margin="10,20"/>
                 
-                <TextBlock Text="ESTADO" Foreground="#666666" FontSize="12" Margin="10,0,0,5"/>
-                <TextBlock x:Name="TxtStatusSidebar" Text="🟢 Protegido" Foreground="#00FF00" Margin="10,0,0,0"/>
+                <TextBlock Text="STATUS" Foreground="#666666" FontSize="12" Margin="10,0,0,5"/>
+                <TextBlock x:Name="TxtStatusSidebar" Text="🟢 Protected" Foreground="#00FF00" Margin="10,0,0,0"/>
 
                 <!-- Botón eliminar para ahorrar espacio
                 <StackPanel VerticalAlignment="Bottom" Margin="0,200,0,0">
-                     <Button Content="❌   Cerrar App" Style="{StaticResource NavButton}" Click="BtnExit_Click" Foreground="#FF5555"/>
+                     <Button Content="❌   Close App" Style="{StaticResource NavButton}" Click="BtnExit_Click" Foreground="#FF5555"/>
                 </StackPanel>
                 -->
             </StackPanel>
@@ -115,18 +115,18 @@
                     </Border>
                     
                     <StackPanel Grid.Row="1" HorizontalAlignment="Center" Margin="0,20,0,0">
-                        <TextBlock Text="Sistema Protegido" FontSize="28" FontWeight="Light" HorizontalAlignment="Center" Foreground="White"/>
-                        <TextBlock x:Name="TxtLastScan" Text="Último análisis: Nunca" FontSize="14" Foreground="#888888" HorizontalAlignment="Center" Margin="0,5,0,0"/>
+                        <TextBlock Text="System Protected" FontSize="28" FontWeight="Light" HorizontalAlignment="Center" Foreground="White"/>
+                        <TextBlock x:Name="TxtLastScan" Text="Last scan: Never" FontSize="14" Foreground="#888888" HorizontalAlignment="Center" Margin="0,5,0,0"/>
                     </StackPanel>
 
                     <StackPanel Grid.Row="2" Margin="0,30,0,20">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,20">
-                             <TextBlock Text="Protección Real:" VerticalAlignment="Center" Margin="0,0,20,0"/>
+                             <TextBlock Text="Real-time Protection:" VerticalAlignment="Center" Margin="0,0,20,0"/>
                              <ToggleButton x:Name="ToggleMonitor" Content="ON/OFF" Width="50" Click="ToggleMonitor_Click"/>
                         </StackPanel>
 
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <Button Content="ESCANEAR TODO AHORA" Width="200" Height="40" Style="{StaticResource ActionBtn}" Click="BtnScanNow_Click"/>
+                            <Button Content="SCAN ALL NOW" Width="200" Height="40" Style="{StaticResource ActionButton}" Click="BtnScanNow_Click"/>
                         </StackPanel>
                     </StackPanel>
 
@@ -136,9 +136,9 @@
                                 <RowDefinition Height="Auto"/>
                                 <RowDefinition Height="*"/>
                             </Grid.RowDefinitions>
-                            <TextBlock Text="Actividad Reciente" FontWeight="Bold" Margin="0,0,0,10"/>
+                            <TextBlock Text="Recent Activity" FontWeight="Bold" Margin="0,0,0,10"/>
                             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                                <TextBlock x:Name="TxtRecentLog" Text="Esperando actividad..." Foreground="#AAAAAA" TextWrapping="Wrap"/>
+                                <TextBlock x:Name="TxtRecentLog" Text="Waiting for activity..." Foreground="#AAAAAA" TextWrapping="Wrap"/>
                             </ScrollViewer>
                         </Grid>
                     </Border>
@@ -146,23 +146,23 @@
 
                 <!-- SETTINGS VIEW -->
                 <StackPanel x:Name="ViewSettings" Margin="40" Visibility="Collapsed">
-                    <TextBlock Text="Configuración" FontSize="24" Margin="0,0,0,20"/>
+                    <TextBlock Text="Settings" FontSize="24" Margin="0,0,0,20"/>
 
-                    <TextBlock Text="Carpeta a Vigilar" Foreground="#AAAAAA" Margin="0,10,0,5"/>
+                    <TextBlock Text="Watch Folder" Foreground="#AAAAAA" Margin="0,10,0,5"/>
                     <TextBox x:Name="InputFolder" Height="30" Padding="5"/>
                     
                     <TextBlock Text="VirusTotal API Key" Foreground="#AAAAAA" Margin="0,15,0,5"/>
                     <PasswordBox x:Name="InputApiKey" Height="30" Padding="5"/>
 
-                    <CheckBox x:Name="CheckStartOnBoot" Content="Iniciar con Windows" Margin="0,20,0,5" Foreground="White"/>
-                    <CheckBox x:Name="CheckStartMinimized" Content="Iniciar Minimizado" Margin="0,5,0,20" Foreground="White"/>
+                    <CheckBox x:Name="CheckStartOnBoot" Content="Start with Windows" Margin="0,20,0,5" Foreground="White"/>
+                    <CheckBox x:Name="CheckStartMinimized" Content="Start Minimized" Margin="0,5,0,20" Foreground="White"/>
 
-                    <Button Content="GUARDAR CAMBIOS" Width="150" HorizontalAlignment="Left" Style="{StaticResource ActionBtn}" Click="BtnSaveSettings_Click"/>
+                    <Button Content="SAVE CHANGES" Width="150" HorizontalAlignment="Left" Style="{StaticResource ActionButton}" Click="BtnSaveSettings_Click"/>
                 </StackPanel>
 
                 <!-- HISTORY VIEW -->
                 <StackPanel x:Name="ViewHistory" Margin="40" Visibility="Collapsed">
-                     <TextBlock Text="Historial de Amenazas" FontSize="24" Margin="0,0,0,20"/>
+                     <TextBlock Text="Threat History" FontSize="24" Margin="0,0,0,20"/>
                      <ListBox x:Name="ListHistory" Background="#252526" BorderThickness="0" Foreground="#CCCCCC" Height="400"/>
                 </StackPanel>
 
