@@ -178,32 +178,27 @@ namespace AntivirusScanner.Core
 
         private static ScanResult? CheckPatterns(byte[] searchWindow)
         {
-            foreach (var pattern in HeuristicPatterns)
-            {
-                if (ContainsBytes(searchWindow, pattern.Value))
+            var heuristicMatch = HeuristicPatterns
+                .Where(pattern => ContainsBytes(searchWindow, pattern.Value))
+                .Select(pattern => new ScanResult
                 {
-                    return new ScanResult
-                    {
-                        Status = ScanStatus.Suspicious,
-                        ThreatType = ThreatType.Malware,
-                        Details = $"Heuristic: Found {pattern.Key}"
-                    };
-                }
-            }
+                    Status = ScanStatus.Suspicious,
+                    ThreatType = ThreatType.Malware,
+                    Details = $"Heuristic: Found {pattern.Key}"
+                })
+                .FirstOrDefault();
 
-            foreach (var pattern in StrongSignatures)
-            {
-                if (ContainsBytes(searchWindow, pattern.Value))
+            if (heuristicMatch != null) return heuristicMatch;
+
+            return StrongSignatures
+                .Where(pattern => ContainsBytes(searchWindow, pattern.Value))
+                .Select(pattern => new ScanResult
                 {
-                    return new ScanResult
-                    {
-                        Status = ScanStatus.Threat,
-                        ThreatType = ThreatType.Malware,
-                        Details = $"CRITICAL: {pattern.Key}"
-                    };
-                }
-            }
-            return null;
+                    Status = ScanStatus.Threat,
+                    ThreatType = ThreatType.Malware,
+                    Details = $"CRITICAL: {pattern.Key}"
+                })
+                .FirstOrDefault();
         }
 
         private static byte[] UpdateCarryOver(byte[] buffer, int bytesRead, int overlap)
