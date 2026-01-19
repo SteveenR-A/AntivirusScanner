@@ -22,3 +22,4 @@ Desktop.ini
 *.log
 # Release
 [Rr]elease/
+.vscode/settings.json
