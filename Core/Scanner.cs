@@ -13,7 +13,7 @@ namespace AntivirusScanner.Core
     public class Scanner
     {
         private AppConfig _config;
-        private CloudScanQueue _cloudQueue;
+        private readonly CloudScanQueue _cloudQueue;
         
         // Events for UI
         public event Action<string>? OnScanStarted;
