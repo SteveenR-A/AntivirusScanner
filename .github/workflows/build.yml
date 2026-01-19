@@ -1,0 +1,29 @@
+name: Build TrueSight Antivirus
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch: # Permite ejecutarlo manualmente con un botón
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x # Usa la versión de tu proyecto
+
+    - name: Publish EXE
+      # Este comando crea el ejecutable único (sin instalador)
+      run: dotnet publish AntivirusScanner.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: TrueSight-Antivirus-v1
+        path: ./publish/TrueSight.exe # El nombre definido en tu .csproj
