@@ -35,7 +35,7 @@ namespace AntivirusScanner.Core
 
         private static readonly string[] MaskExtensions = { ".jpg", ".png", ".txt", ".mp4", ".doc", ".pdf" };
 
-        public ScanResult CheckLocalSignatures(string filePath)
+        public static ScanResult CheckLocalSignatures(string filePath)
         {
             var result = new ScanResult { FilePath = filePath, Status = ScanStatus.Safe };
 
@@ -50,7 +50,7 @@ namespace AntivirusScanner.Core
             return result;
         }
 
-        private ScanResult ValidateSignature(KeyValuePair<string, (string Desc, string[] Exts)> sig, string ext, string filePath)
+        private static ScanResult ValidateSignature(KeyValuePair<string, (string Desc, string[] Exts)> sig, string ext, string filePath)
         {
             if (IsExtensionValid(ext, sig.Value.Exts))
             {
@@ -82,11 +82,11 @@ namespace AntivirusScanner.Core
             return new ScanResult { FilePath = filePath, Status = ScanStatus.Safe };
         }
 
-        private bool IsExtensionValid(string ext, string[] validExtensions) => validExtensions.Contains(ext);
+        private static bool IsExtensionValid(string ext, string[] validExtensions) => validExtensions.Contains(ext);
 
-        private bool IsMaskExtension(string ext) => MaskExtensions.Contains(ext);
+        private static bool IsMaskExtension(string ext) => MaskExtensions.Contains(ext);
 
-        public ScanResult ScanFileContent(string filePath)
+        public static ScanResult ScanFileContent(string filePath)
         {
             var result = new ScanResult { FilePath = filePath, Status = ScanStatus.Safe };
 
@@ -240,7 +240,7 @@ namespace AntivirusScanner.Core
             catch { return 0; }
         }
 
-        private bool IsPEFile(string filePath)
+        private static bool IsPEFile(string filePath)
         {
             try
             {
@@ -256,14 +256,14 @@ namespace AntivirusScanner.Core
             catch { return false; }
         }
 
-        private bool IsScriptFile(string filePath)
+        private static bool IsScriptFile(string filePath)
         {
             string ext = Path.GetExtension(filePath).ToLower();
             return ext == ".ps1" || ext == ".bat" || ext == ".vbs" || ext == ".cmd" || ext == ".js";
         }
 
         // Knuth-Morris-Pratt (KMP) or Simple Byte Search
-        private bool ContainsBytes(byte[] haystack, byte[] needle)
+        private static bool ContainsBytes(byte[] haystack, byte[] needle)
         {
             int len = needle.Length;
             int limit = haystack.Length - len;
@@ -279,7 +279,7 @@ namespace AntivirusScanner.Core
             return false;
         }
 
-        private string GetMagicNumber(string filePath)
+        private static string GetMagicNumber(string filePath)
         {
             try
             {
