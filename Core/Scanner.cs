@@ -37,15 +37,49 @@ namespace AntivirusScanner.Core
         {
             if (!Directory.Exists(_config.TargetFolder)) return;
 
-            var files = Directory.GetFiles(_config.TargetFolder);
-            
-            foreach (var file in files)
+            // Safe Recursive Scan
+            await Task.Run(async () => 
             {
-                await ScanFile(file);
-            }
+                foreach (var file in GetSafeFiles(_config.TargetFolder))
+                {
+                    await ScanFile(file);
+                }
+            });
             
             // Save state after full scan
             SettingsManager.Save(_config);
+        }
+
+        private IEnumerable<string> GetSafeFiles(string rootPath)
+        {
+            var pending = new Stack<string>();
+            pending.Push(rootPath);
+
+            while (pending.Count > 0)
+            {
+                var path = pending.Pop();
+                string[]? files = null;
+                try
+                {
+                    files = Directory.GetFiles(path);
+                }
+                catch (UnauthorizedAccessException) { /* Skip locked folders */ }
+                catch (Exception) { /* Skip other errors */ }
+
+                if (files != null)
+                {
+                    foreach (var file in files) yield return file;
+                }
+
+                try
+                {
+                    foreach (var subdir in Directory.GetDirectories(path))
+                    {
+                        pending.Push(subdir);
+                    }
+                }
+                catch { /* Ignore directory access errors */ }
+            }
         }
 
         public async Task<ScanResult> ScanFile(string filePath)
@@ -64,81 +98,130 @@ namespace AntivirusScanner.Core
                 var fileInfo = new FileInfo(filePath);
                 OnScanStarted?.Invoke(Path.GetFileName(filePath));
 
-                // 1. Capa Rápida (Cache Check)
+                // 1. Capa Rápida (Smart Cache)
+                bool potentialCacheHit = false;
+                FileState? cachedState = null;
+
                 if (_config.FileStates.TryGetValue(filePath, out var oldState))
                 {
+                    // Check if file changed (Size/Time)
                     if (oldState.LastModified == fileInfo.LastWriteTimeUtc && oldState.Size == fileInfo.Length)
                     {
-                        if (oldState.Status == ScanStatus.Safe.ToString())
-                        {
-                            result.Status = ScanStatus.Skipped;
-                            OnScanCompleted?.Invoke(result);
-                            return result;
-                        }
+                        potentialCacheHit = true;
+                        cachedState = oldState;
+                    }
+                    else
+                    {
+                        // File changed, invalidate cache (implicitly by not setting potentialCacheHit)
                     }
                 }
 
+                // 2. ALWAYS Calculate Hash & Refresh Metadata (TOCTOU Fix)
                 string hash = ComputeSha256(filePath);
                 if (string.IsNullOrEmpty(hash)) 
                 {
                     result.Status = ScanStatus.Error;
                     return result;
                 }
+                fileInfo.Refresh(); 
 
-                // 2. Capa Histórica (Known Hash) & BLACKLIST (Offline)
-                if (_config.BlacklistedHashes.Contains(hash))
-                {
-                    result.Status = ScanStatus.Threat;
-                    result.ThreatType = ThreatType.Malware;
-                    result.Details = "Detected by Local Blacklist";
-                    HandleAction(result, hash, fileInfo);
-                    return result;
-                }
-
-                if (_config.HashHistory.TryGetValue(hash, out var status) && status == ScanStatus.Safe.ToString())
-                {
-                    result.Status = ScanStatus.Safe;
-                    OnScanCompleted?.Invoke(result);
-                    return result; // Already safe
-                }
-
-                // 3. Análisis Profundo
+                // 3. ALWAYS Run Local Heuristics (Hybrid Scan)
+                // "Revalidación forzada si hay heurística sospechosa" -> We always check local signs.
                 
-                // A. Análisis Local (Firmas & Heurística)
+                // A. Local Signatures
                 var localMetadata = _localScanner.CheckLocalSignatures(filePath);
                 if (localMetadata.Status != ScanStatus.Safe)
                 {
                     result = localMetadata;
-                    // Dont return yet, we might want to verify with VT if just suspicious? for now return
+                    // If local is suspicious, we might want to Confirm with VT (bypass cache)
                 }
                 else
                 {
-                    // Heurística de strings
+                    // B. Byte Patterns & Entropy
                     var heuristic = _localScanner.ScanFileContent(filePath);
                     if (heuristic.Status != ScanStatus.Safe)
                     {
                         result = heuristic;
                     }
-                    else
+                }
+
+                bool localIsClean = result.Status == ScanStatus.Safe;
+
+                // 4. Cloud Check (VirusTotal) - with TTL & Cache Logic
+                if (localIsClean)
+                {
+                    // If Local is CLEAN, we can check Cache to skip VT
+                    if (potentialCacheHit && cachedState != null && cachedState.Status == ScanStatus.Safe.ToString())
                     {
-                        // B. VirusTotal
-                        if (!string.IsNullOrEmpty(_config.ApiKey))
+                        // Check TTL (Smart Strategy)
+                        // Critical files (exe, scripts) = 7 Days
+                        // Passive files (txt, img) = 30 Days (Save API Quota)
+                        int ttlDays = IsCriticalFile(filePath) ? 7 : 30;
+                        
+                        var age = DateTime.UtcNow - cachedState.LastScanned;
+                        if (age.TotalDays < ttlDays)
                         {
-                            int vtDetections = await _vtService.CheckFileHashAsync(hash, _config.ApiKey);
-                            if (vtDetections > 0)
-                            {
-                                result.Status = ScanStatus.Threat;
-                                result.ThreatType = ThreatType.Malware;
-                                result.Details = $"VirusTotal: {vtDetections} detections";
-                                
-                                // Save to Blacklist
-                                _config.BlacklistedHashes.Add(hash);
-                            }
-                            else if (vtDetections == 0)
-                            {
-                                 result.Status = ScanStatus.Safe;
-                            }
-                            // If -1 (Error/RateLimit), we default to Safe locally but don't cache as Safe
+                            result.Status = ScanStatus.Skipped; // Safe & Valid Cache
+                            OnScanCompleted?.Invoke(result);
+                            return result;
+                        }
+                        // Expired -> Fall through to VT
+                    }
+
+                    // Also check HashHistory (for moved files)
+                    if (_config.BlacklistedHashes.Contains(hash))
+                    {
+                        result.Status = ScanStatus.Threat;
+                        result.ThreatType = ThreatType.Malware;
+                        result.Details = "Detected by Local Blacklist";
+                    }
+                    else if (_config.HashHistory.TryGetValue(hash, out var status) && status == ScanStatus.Safe.ToString())
+                    {
+                        // Hash known safe, BUT check if we need to re-verify due to TTL?
+                        // HashHistory doesn't store date. We rely on FileState for TTL on specific files.
+                        // If it's a new file with known hash, we ideally trust the hash... 
+                        // BUT user wants weekly revalidation.
+                        // For simplicity: If Cache (FileState) missed, we DO check VT to be safe, 
+                        // unless we want to trust HashHistory globally. 
+                        // Use a conservative approach: If FileState missed (new file), check VT. 
+                        // HashHistory is a backup if VT fails or specific optimization.
+                    
+                        // Current logic: If HashHistory says safe, we return Safe.
+                        // To implement "Weekly Revalidation" properly without bloating HashHistory with dates,
+                        // we generally rely on FileState. 
+                        // For now, let's allow HashHistory to skip VT, assuming HashHistory is cleared or managed elsewhere,
+                        // OR we just accept that HashHistory implies "Global Trust".
+                        
+                        // However, to strictly follow "Revalidación semanal", we should probably NOT trust HashHistory 
+                        // without a timestamp. Since HashHistory is simple <string, string>, it's timeless.
+                        // Let's degrade HashHistory to "Soft Trust" -> If not in Blacklist, we check VT anyway 
+                        // if we want strict freshness.
+                        
+                        // OPTIMIZATION: If we scanned this EXACT file path < 7 days ago, we skipped above.
+                        // If we are here, either it's a new file or expired.
+                        // So checking VT is the correct "Fresh" action.
+                    }
+
+                    // If still considered Safe locally, check VT
+                    if (result.Status == ScanStatus.Safe && !string.IsNullOrEmpty(_config.ApiKey))
+                    {
+                        int vtDetections = await _vtService.CheckFileHashAsync(hash, _config.ApiKey);
+                        if (vtDetections > 0)
+                        {
+                            result.Status = ScanStatus.Threat;
+                            result.ThreatType = ThreatType.Malware;
+                            result.Details = $"VirusTotal: {vtDetections} detections";
+                            _config.BlacklistedHashes.Add(hash);
+                        }
+                        else if (vtDetections == 0)
+                        {
+                             result.Status = ScanStatus.Safe;
+                        }
+                        else
+                        {
+                            // Error/Limit -> Fail Open Fix from before
+                            result.Status = ScanStatus.Error; 
+                            result.Details = "VirusTotal Scan Failed (Offline/Limit)";
                         }
                     }
                 }
@@ -167,13 +250,14 @@ namespace AntivirusScanner.Core
             {
                 _config.HashHistory[hash] = ScanStatus.Safe.ToString();
                 
-                 // Update State
+                 // Update State with LastScanned = Now
                 _config.FileStates[result.FilePath] = new FileState 
                 { 
                     LastModified = fileInfo.LastWriteTimeUtc, 
                     Size = fileInfo.Length, 
                     Hash = hash,
-                    Status = ScanStatus.Safe.ToString()
+                    Status = ScanStatus.Safe.ToString(),
+                    LastScanned = DateTime.UtcNow // REVALIDATION TIMESTAMP
                 };
             }
 
@@ -203,8 +287,8 @@ namespace AntivirusScanner.Core
                 if (!Directory.Exists(quarantineDir)) Directory.CreateDirectory(quarantineDir);
 
                 string fileName = Path.GetFileName(filePath);
-                // Use GUID to prevent collisions
-                string newName = $"{Guid.NewGuid()}_{fileName}";
+                // Rename to .quarantine to prevent execution
+                string newName = $"{Guid.NewGuid()}_{fileName}.quarantine";
                 string destPath = Path.Combine(quarantineDir, newName);
 
                 File.Move(filePath, destPath);
@@ -215,12 +299,20 @@ namespace AntivirusScanner.Core
                     var fileInfo = new FileInfo(destPath);
                     var security = fileInfo.GetAccessControl();
                     
+                    // Break inheritance
                     security.SetAccessRuleProtection(true, false);
                     
+                    // Grant SYSTEM Full Control (so app/admin can still manage it)
+                    security.AddAccessRule(new FileSystemAccessRule(
+                        new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+                        FileSystemRights.FullControl,
+                        AccessControlType.Allow));
+
+                    // Grant User DELETE & WRITE Only (No Execute, No Read Data)
                     var user = WindowsIdentity.GetCurrent().Name;
                     var rule = new FileSystemAccessRule(
                         user, 
-                        FileSystemRights.ReadData, 
+                        FileSystemRights.Delete | FileSystemRights.Write | FileSystemRights.ReadAttributes, 
                         AccessControlType.Allow);
                         
                     security.AddAccessRule(rule);
@@ -237,6 +329,16 @@ namespace AntivirusScanner.Core
             {
                 Console.WriteLine($"Error moving to quarantine: {ex.Message}");
             }
+        }
+        private bool IsCriticalFile(string filePath)
+        {
+            try
+            {
+                string ext = Path.GetExtension(filePath).ToLower();
+                return ext == ".exe" || ext == ".dll" || ext == ".bat" || ext == ".ps1" || 
+                       ext == ".msi" || ext == ".vbs" || ext == ".js" || ext == ".cmd" || ext == ".com";
+            }
+            catch { return false; }
         }
     }
 }

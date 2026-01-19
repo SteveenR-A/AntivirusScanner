@@ -84,11 +84,15 @@ namespace AntivirusScanner.Core
                 // 1. ANÁLISIS DE ENTROPÍA (Detectar Encriptación/Packers)
                 double entropy = CalculateShannonEntropy(filePath);
                 
-                // Si la entropía es muy alta (> 7.2) y es un ejecutable, es MUY sospechoso (Packed/Encrypted)
+                // Si la entropía es muy alta (> 7.2) y es un ejecutable...
                 bool isHighEntropy = entropy > 7.2;
                 bool isExecutable = IsPEFile(filePath);
 
-                if (isExecutable && isHighEntropy)
+                // REFINAMIENTO: Ignorar archivos gigantes (>10MB) ya que suelen ser instaladores legítimos comprimidos.
+                // Los packers de malware suelen ser pequeños stagers (< 2-3 MB).
+                bool isSmallEnough = info.Length < 10 * 1024 * 1024; 
+
+                if (isExecutable && isHighEntropy && isSmallEnough)
                 {
                     result.Status = ScanStatus.Suspicious;
                     result.ThreatType = ThreatType.Unknown; // Posible Malware Empaquetado

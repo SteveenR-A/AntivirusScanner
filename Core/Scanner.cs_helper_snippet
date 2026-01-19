@@ -1,0 +1,6 @@
+        private bool IsCriticalFile(string filePath)
+        {
+            string ext = Path.GetExtension(filePath).ToLower();
+            return ext == ".exe" || ext == ".dll" || ext == ".bat" || ext == ".ps1" || 
+                   ext == ".msi" || ext == ".vbs" || ext == ".js" || ext == ".cmd" || ext == ".com";
+        }
