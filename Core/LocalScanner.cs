@@ -7,7 +7,7 @@ using AntivirusScanner.Utils;
 
 namespace AntivirusScanner.Core
 {
-    public class LocalScanner
+    public static class LocalScanner
     {
         // Reglas más específicas para evitar falsos positivos
         private static readonly Dictionary<string, byte[]> StrongSignatures = new()
@@ -88,112 +88,138 @@ namespace AntivirusScanner.Core
 
         public static ScanResult ScanFileContent(string filePath)
         {
-            var result = new ScanResult { FilePath = filePath, Status = ScanStatus.Safe };
-
             try
             {
-                FileInfo info = new FileInfo(filePath);
-                
-                // 1. ANÁLISIS DE ENTROPÍA (Detectar Encriptación/Packers)
-                double entropy = CalculateShannonEntropy(filePath);
-                
-                // Si la entropía es muy alta (> 7.2) y es un ejecutable...
-                bool isHighEntropy = entropy > 7.2;
-                bool isExecutable = IsPEFile(filePath);
+                var result = AnalyzeEntropy(filePath);
 
-                // REFINAMIENTO: Ignorar archivos gigantes (>10MB) ya que suelen ser instaladores legítimos comprimidos.
-                // Los packers de malware suelen ser pequeños stagers (< 2-3 MB).
-                bool isSmallEnough = info.Length < 10 * 1024 * 1024; 
-
-                if (isExecutable && isHighEntropy && isSmallEnough)
+                if (!ShouldScanContent(filePath))
                 {
-                    result.Status = ScanStatus.Suspicious;
-                    result.ThreatType = ThreatType.Unknown; // Posible Malware Empaquetado
-                    result.Details = $"Heuristic: High Entropy ({entropy:F2}). File might be packed or encrypted.";
-                    // Seguimos escaneando por si encontramos firmas conocidas dentro del packer
+                    return result;
                 }
 
-                // 2. FILTRADO: Si NO es un ejecutable ni script (.ps1, .bat), 
-                // NO buscamos firmas de inyección de código para evitar falsos positivos
-                if (!isExecutable && !IsScriptFile(filePath))
+                var patternResult = ScanStreamForPatterns(filePath);
+                if (patternResult.Status != ScanStatus.Safe)
                 {
-                    // Solo retornamos si NO marcamos alta entropía antes.
-                    // Si marcamos alta entropía, ya es sospechoso, así que devolvemos eso.
-                    return result; 
+                    return patternResult;
                 }
 
-                // 3. ESCANEO DE FIRMAS (Contenido) en Stream
-                const int BUFFER_SIZE = 4096; // 4KB chunks
-                const int OVERLAP = 128;      // Overlap to catch split patterns
-                
-                using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-                {
-                    byte[] buffer = new byte[BUFFER_SIZE];
-                    int bytesRead;
-                    byte[] carryOver = new byte[0];
-
-                    while ((bytesRead = fs.Read(buffer, 0, BUFFER_SIZE)) > 0)
-                    {
-                        // Combine carryOver + current buffer to scan across boundaries
-                        byte[] searchWindow;
-                        if (carryOver.Length > 0)
-                        {
-                            searchWindow = new byte[carryOver.Length + bytesRead];
-                            Buffer.BlockCopy(carryOver, 0, searchWindow, 0, carryOver.Length);
-                            Buffer.BlockCopy(buffer, 0, searchWindow, carryOver.Length, bytesRead);
-                        }
-                        else
-                        {
-                            searchWindow = new byte[bytesRead];
-                            Buffer.BlockCopy(buffer, 0, searchWindow, 0, bytesRead);
-                        }
-
-                        // Scan patterns
-                        foreach (var pattern in HeuristicPatterns)
-                        {
-                            if (ContainsBytes(searchWindow, pattern.Value))
-                            {
-                                // Stronger warning if we found a pattern
-                                result.Status = ScanStatus.Suspicious;
-                                result.ThreatType = ThreatType.Malware;
-                                result.Details = $"Heuristic: Found {pattern.Key}";
-                                return result;
-                            }
-                        }
-                        
-                        // Check Strong Signatures (Exact Match) - Example EICAR
-                        foreach (var pattern in StrongSignatures)
-                        {
-                             if (ContainsBytes(searchWindow, pattern.Value))
-                            {
-                                result.Status = ScanStatus.Threat;
-                                result.ThreatType = ThreatType.Malware;
-                                result.Details = $"CRITICAL: {pattern.Key}";
-                                return result;
-                            }
-                        }
-
-                        // Save last part for overlap
-                        if (bytesRead > OVERLAP)
-                        {
-                            carryOver = new byte[OVERLAP];
-                            Buffer.BlockCopy(buffer, bytesRead - OVERLAP, carryOver, 0, OVERLAP);
-                        }
-                        else
-                        {
-                            carryOver = new byte[bytesRead];
-                            Buffer.BlockCopy(buffer, 0, carryOver, 0, bytesRead);
-                        }
-                    }
-                }
+                return result;
             }
             catch (Exception ex)
             {
-                result.Status = ScanStatus.Error;
-                result.Details = $"Read Error: {ex.Message}";
+                return new ScanResult { FilePath = filePath, Status = ScanStatus.Error, Details = $"Read Error: {ex.Message}" };
+            }
+        }
+
+        private static ScanResult AnalyzeEntropy(string filePath)
+        {
+            var result = new ScanResult { FilePath = filePath, Status = ScanStatus.Safe };
+            double entropy = CalculateShannonEntropy(filePath);
+
+            if (entropy > 7.2 && IsPEFile(filePath))
+            {
+                FileInfo info = new FileInfo(filePath);
+                if (info.Length < 10 * 1024 * 1024)
+                {
+                    result.Status = ScanStatus.Suspicious;
+                    result.ThreatType = ThreatType.Unknown;
+                    result.Details = $"Heuristic: High Entropy ({entropy:F2}). File might be packed or encrypted.";
+                }
+            }
+            return result;
+        }
+
+        private static bool ShouldScanContent(string filePath)
+        {
+            return IsPEFile(filePath) || IsScriptFile(filePath);
+        }
+
+        private static ScanResult ScanStreamForPatterns(string filePath)
+        {
+            const int BUFFER_SIZE = 4096;
+            const int OVERLAP = 128;
+
+            using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            {
+                byte[] buffer = new byte[BUFFER_SIZE];
+                int bytesRead;
+                byte[] carryOver = new byte[0];
+
+                while ((bytesRead = fs.Read(buffer, 0, BUFFER_SIZE)) > 0)
+                {
+                    byte[] searchWindow = CreateSearchWindow(buffer, bytesRead, carryOver);
+
+                    var match = CheckPatterns(searchWindow);
+                    if (match != null) return match;
+
+                    carryOver = UpdateCarryOver(buffer, bytesRead, OVERLAP);
+                }
             }
 
-            return result;
+            return new ScanResult { FilePath = filePath, Status = ScanStatus.Safe };
+        }
+
+        private static byte[] CreateSearchWindow(byte[] buffer, int bytesRead, byte[] carryOver)
+        {
+            if (carryOver.Length > 0)
+            {
+                byte[] searchWindow = new byte[carryOver.Length + bytesRead];
+                Buffer.BlockCopy(carryOver, 0, searchWindow, 0, carryOver.Length);
+                Buffer.BlockCopy(buffer, 0, searchWindow, carryOver.Length, bytesRead);
+                return searchWindow;
+            }
+            else
+            {
+                byte[] searchWindow = new byte[bytesRead];
+                Buffer.BlockCopy(buffer, 0, searchWindow, 0, bytesRead);
+                return searchWindow;
+            }
+        }
+
+        private static ScanResult? CheckPatterns(byte[] searchWindow)
+        {
+            foreach (var pattern in HeuristicPatterns)
+            {
+                if (ContainsBytes(searchWindow, pattern.Value))
+                {
+                    return new ScanResult
+                    {
+                        Status = ScanStatus.Suspicious,
+                        ThreatType = ThreatType.Malware,
+                        Details = $"Heuristic: Found {pattern.Key}"
+                    };
+                }
+            }
+
+            foreach (var pattern in StrongSignatures)
+            {
+                if (ContainsBytes(searchWindow, pattern.Value))
+                {
+                    return new ScanResult
+                    {
+                        Status = ScanStatus.Threat,
+                        ThreatType = ThreatType.Malware,
+                        Details = $"CRITICAL: {pattern.Key}"
+                    };
+                }
+            }
+            return null;
+        }
+
+        private static byte[] UpdateCarryOver(byte[] buffer, int bytesRead, int overlap)
+        {
+            if (bytesRead > overlap)
+            {
+                byte[] carryOver = new byte[overlap];
+                Buffer.BlockCopy(buffer, bytesRead - overlap, carryOver, 0, overlap);
+                return carryOver;
+            }
+            else
+            {
+                byte[] carryOver = new byte[bytesRead];
+                Buffer.BlockCopy(buffer, 0, carryOver, 0, bytesRead);
+                return carryOver;
+            }
         }
 
         /// <summary>

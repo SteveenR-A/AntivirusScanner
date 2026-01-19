@@ -14,7 +14,6 @@ namespace AntivirusScanner.Core
     {
         private AppConfig _config;
         private readonly VirusTotalService _vtService;
-        private readonly LocalScanner _localScanner;
         
         // Events for UI
         public event Action<string>? OnScanStarted;
@@ -25,7 +24,6 @@ namespace AntivirusScanner.Core
         {
             _config = config;
             _vtService = new VirusTotalService();
-            _localScanner = new LocalScanner();
         }
 
         public void UpdateConfig(AppConfig newConfig)
@@ -129,7 +127,7 @@ namespace AntivirusScanner.Core
                 // "Revalidación forzada si hay heurística sospechosa" -> We always check local signs.
                 
                 // A. Local Signatures
-                var localMetadata = _localScanner.CheckLocalSignatures(filePath);
+                var localMetadata = LocalScanner.CheckLocalSignatures(filePath);
                 if (localMetadata.Status != ScanStatus.Safe)
                 {
                     result = localMetadata;
@@ -138,7 +136,7 @@ namespace AntivirusScanner.Core
                 else
                 {
                     // B. Byte Patterns & Entropy
-                    var heuristic = _localScanner.ScanFileContent(filePath);
+                    var heuristic = LocalScanner.ScanFileContent(filePath);
                     if (heuristic.Status != ScanStatus.Safe)
                     {
                         result = heuristic;
