@@ -6,8 +6,8 @@ namespace AntivirusScanner
 {
     public partial class App : System.Windows.Application
     {
-        private static Mutex? _mutex = null;
-        private static EventWaitHandle? _eventWaitHandle = null;
+        private Mutex? _mutex = null;
+        private EventWaitHandle? _eventWaitHandle = null;
         private const string UniqueEventName = "Global\\TrueSight_Signal";
         private const string UniqueMutexName = "Global\\TrueSight_SingleInstance";
 
