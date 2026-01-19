@@ -16,14 +16,15 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 10.0.x # Usa la versión de tu proyecto
+        dotnet-version: 8.0.x 
 
     - name: Publish EXE
-      # Este comando crea el ejecutable único (sin instalador)
-      run: dotnet publish AntivirusScanner.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./publish
+      # Framework Dependent Publish (Requires .NET 8 Runtime on target machine)
+      # Generates a small .exe and .dll
+      run: dotnet publish AntivirusScanner.csproj -c Release -r win-x64 --self-contained false -o ./publish
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
         name: TrueSight-Antivirus-v1
-        path: ./publish/TrueSight.exe # El nombre definido en tu .csproj
+        path: ./publish/ # Sube toda la carpeta porque necesita las DLLs

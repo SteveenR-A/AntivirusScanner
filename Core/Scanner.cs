@@ -281,39 +281,28 @@ namespace AntivirusScanner.Core
                 string newName = $"{Guid.NewGuid()}_{fileName}.quarantine";
                 string destPath = Path.Combine(quarantineDir, newName);
 
+                // Strategy: Move then Obfuscate (XOR) to avoid static detection of the file in quarantine
                 File.Move(filePath, destPath);
-                
-                // Remove Permissions (Lock down the file) - Windows Specific
-                try
-                {
-                    var fileInfo = new FileInfo(destPath);
-                    var security = fileInfo.GetAccessControl();
-                    
-                    // Break inheritance
-                    security.SetAccessRuleProtection(true, false);
-                    
-                    // Grant SYSTEM Full Control (so app/admin can still manage it)
-                    security.AddAccessRule(new FileSystemAccessRule(
-                        new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
-                        FileSystemRights.FullControl,
-                        AccessControlType.Allow));
 
-                    // Grant User DELETE & WRITE Only (No Execute, No Read Data)
-                    var user = WindowsIdentity.GetCurrent().Name;
-                    var rule = new FileSystemAccessRule(
-                        user, 
-                        FileSystemRights.Delete | FileSystemRights.Write | FileSystemRights.ReadAttributes, 
-                        AccessControlType.Allow);
-                        
-                    security.AddAccessRule(rule);
-                    fileInfo.SetAccessControl(security);
-                }
-                catch (Exception)
+                try 
                 {
-                    // Fail silently for ACL errors
+                    // Simple Obfuscation: XOR the first 4KB to break PE Header / Magic Numbers
+                    byte[] key = { 0xDE, 0xAD, 0xBE, 0xEF };
+                    using (var fs = new FileStream(destPath, FileMode.Open, FileAccess.ReadWrite))
+                    {
+                        byte[] buffer = new byte[4096];
+                        int bytesRead = fs.Read(buffer, 0, buffer.Length);
+                        for (int i = 0; i < bytesRead; i++)
+                        {
+                            buffer[i] ^= key[i % key.Length];
+                        }
+                        fs.Position = 0;
+                        fs.Write(buffer, 0, bytesRead);
+                    }
                 }
+                catch { /* Ignore obfuscation errors, file is already moved and renamed */ }
 
-                File.WriteAllText(destPath + ".txt", $"Original: {filePath}\nDate: {DateTime.Now}\nReason: {reason}");
+                File.WriteAllText(destPath + ".txt", $"Original: {filePath}\nDate: {DateTime.Now}\nReason: {reason}\nNote: File is XOR obfuscated (Key: DEADBEEF)");
             }
             catch (Exception ex)
             {

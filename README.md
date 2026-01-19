@@ -1,6 +1,6 @@
 # 🛡️ TrueSight Scanner (Educational)
 
-**TrueSight** is a **basic scanning engine** developed in **C# (.NET 10)** for educational purposes. Its goal is to demonstrate cybersecurity concepts such as file integrity verification and integration with threat intelligence APIs.
+**TrueSight** is a **basic scanning engine** developed in **C# (.NET 8)** for educational purposes. Its goal is to demonstrate cybersecurity concepts such as file integrity verification and integration with threat intelligence APIs.
 
 > [!WARNING]
 > **Important Notice:** This project is an educational **Proof of Concept (PoC)**. It is **NOT a substitute for a commercial antivirus** (like Windows Defender, Kaspersky, etc.). It does not have the capability to remove active viruses from memory nor analyze internal file code (advanced heuristic analysis). Use it as a "second opinion" for suspicious files.
@@ -31,7 +31,7 @@ If the file passes static analysis but is unknown:
 
 ### Requirements
 - **Windows 10 or 11**.
-- **.NET 10 SDK**: [Download .NET 10](https://dotnet.microsoft.com/download/dotnet/10.0).
+- **.NET Desktop Runtime 8.0**: [Download Here](https://dotnet.microsoft.com/en-us/download/dotnet/8.0).
 - **VirusTotal API Key**: (Free at [virustotal.com](https://www.virustotal.com)).
 
 ### 🛠️ Compilation & Execution
@@ -41,10 +41,12 @@ This project is distributed as **Source Code** so you can study how it works.
 2.  **Compile**:
     Open a terminal in the folder and run:
     ```powershell
-    dotnet build -c Release
-    dotnet run --project AntivirusScanner.csproj
+    dotnet publish -c Release -r win-x64 --self-contained false
     ```
-3.  **Configure**:
+    *The executable will be in `bin/Release/net8.0-windows/win-x64/publish`.*
+3.  **Run**:
+    Open the generated `TrueSight.exe`.
+4.  **Configure**:
     The application will start. Go to **Settings** and enter your API Key.
 
 ## 🧪 Testing Detection
