@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Linq;
 using AntivirusScanner.Utils;
 
 namespace AntivirusScanner.Core
@@ -59,7 +60,8 @@ namespace AntivirusScanner.Core
 
                     // 2. Call VirusTotal (This takes time and manages 15s delay internally)
                     // We need to pass _config to CheckFileHashAsync as per existing implementation
-                    int detections = await _vtService.CheckFileHashAsync(request.Hash, _config);
+                    // Returns (Count, List<string>? Engines)
+                    var (detections, engines) = await _vtService.CheckFileHashAsync(request.Hash, _config);
 
                     // 3. Create Result
                     var result = new ScanResult { FilePath = request.FilePath };
@@ -72,14 +74,30 @@ namespace AntivirusScanner.Core
                     }
                     else if (detections > 0)
                     {
-                        result.Status = ScanStatus.Threat;
-                        result.ThreatType = ThreatType.Malware;
-                        result.Details = $"VirusTotal: {detections} detections";
-                        
-                        // Add to blacklist
-                        lock(_config.BlacklistedHashes)
+                        // VIP Club Logic: Check if any major vendor is present
+                        var vipVendors = new[] { "Microsoft", "Kaspersky", "Google", "ESET-NOD32", "BitDefender", "Symantec" };
+                        bool vipConfirmed = engines != null && engines.Any(e => vipVendors.Contains(e)); // Simple contains check, might need better matching if names vary
+
+                        if (detections >= 4 || vipConfirmed)
                         {
-                            _config.BlacklistedHashes.Add(request.Hash);
+                            result.Status = ScanStatus.Threat;
+                            result.ThreatType = ThreatType.Malware;
+                            string vipTag = vipConfirmed ? "[VIP CONFIRMED]" : "";
+                            result.Details = $"VirusTotal: {detections} detections {vipTag}";
+                            
+                            // Add to blacklist (Quarantine Trigger)
+                            lock(_config.BlacklistedHashes)
+                            {
+                                _config.BlacklistedHashes.Add(request.Hash);
+                            }
+                        }
+                        else
+                        {
+                             // 1-3 detections AND No VIPs -> Suspicious (False Positive Candidate)
+                             result.Status = ScanStatus.Suspicious;
+                             result.ThreatType = ThreatType.Unknown;
+                             result.Details = $"VirusTotal: {detections} flag(s) (No Big Vendor confirmed). Treating as Suspicious.";
+                             // Do NOT blacklist automatically.
                         }
                     }
                     else if (detections == 0)

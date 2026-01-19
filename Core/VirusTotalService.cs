@@ -19,9 +19,10 @@ namespace AntivirusScanner.Core
             _client = new HttpClient();
         }
 
-        public async Task<int> CheckFileHashAsync(string hash, AntivirusScanner.Utils.AppConfig config)
+        // Returns: (Detection Count, List of Engines that detected it) or (-1, null) on error
+        public async Task<(int Count, List<string>? Engines)> CheckFileHashAsync(string hash, AntivirusScanner.Utils.AppConfig config)
         {
-            if (string.IsNullOrEmpty(config.ApiKey)) return 0;
+            if (string.IsNullOrEmpty(config.ApiKey)) return (0, null);
 
             // 1. Daily Reset Logic
             if (config.LastApiDate.Date < DateTime.UtcNow.Date)
@@ -33,7 +34,7 @@ namespace AntivirusScanner.Core
             // 2. Daily Quota Check (500 limit)
             if (config.DailyApiUsage >= 500)
             {
-                return -2; // Code for 'Quota Exceeded'
+                return (-2, null); // Code for 'Quota Exceeded'
             }
 
             // Handle Rate Limiting (Token Bucket / Time check)
@@ -61,7 +62,7 @@ namespace AntivirusScanner.Core
 
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
-                    return 0; // File unknown (clean by default)
+                    return (0, null); // File unknown (clean by default)
                 }
 
                 if (response.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
@@ -69,30 +70,46 @@ namespace AntivirusScanner.Core
                     // Penalization: wait longer if we hit the limit
                     _nextAllowedRequest = DateTime.Now.AddSeconds(60); 
                     Debug.WriteLine("[VirusTotal] Quota exceeded (429). Backing off for 60s.");
-                    return -1;
+                    return (-1, null);
                 }
 
                 if (!response.IsSuccessStatusCode)
                 {
                     Debug.WriteLine($"[VirusTotal] API Error: {response.StatusCode}");
-                    return -1;
+                    return (-1, null);
                 }
 
                 string json = await response.Content.ReadAsStringAsync();
                 
                 using var doc = JsonDocument.Parse(json);
-                var stats = doc.RootElement
+                var attributes = doc.RootElement
                                .GetProperty("data")
-                               .GetProperty("attributes")
-                               .GetProperty("last_analysis_stats");
-                
+                               .GetProperty("attributes");
+
+                var stats = attributes.GetProperty("last_analysis_stats");
                 int malicious = stats.GetProperty("malicious").GetInt32();
-                return malicious;
+
+                // Parse individual engines
+                var detectingEngines = new List<string>();
+                if (malicious > 0)
+                {
+                    var results = attributes.GetProperty("last_analysis_results");
+                    foreach (var engine in results.EnumerateObject())
+                    {
+                        var result = engine.Value;
+                        if (result.GetProperty("category").GetString() == "malicious")
+                        {
+                            detectingEngines.Add(engine.Name);
+                        }
+                    }
+                }
+
+                return (malicious, detectingEngines);
             }
             catch (Exception ex)
             {
                 Debug.WriteLine($"[VirusTotal] Exception: {ex.Message}");
-                return -1;
+                return (-1, null);
             }
         }
     }

@@ -21,7 +21,9 @@ If the file passes static analysis but is unknown:
 - Calculates the **SHA-256 Hash** of the file.
 - Queries the **VirusTotal** database (API Key required).
 - **Free API Note**: The system automatically respects the **4 requests per minute** limit (1 every 15 sec) of free accounts to avoid blocks.
-- If more than one engine in VirusTotal marks it as malicious, TrueSight will alert you.
+- **Smart Filtering (Democracy & VIP Rules)**:
+    - **Democracy Rule**: Requires at least **4 engines** to confirm a threat before blocking.
+    - **VIP Club**: If a major vendor (**Microsoft, Kaspersky, Google, ESET, BitDefender, Symantec**) detects it, it is treated as a confirmed threat immediately.
 
 ### 3. 🛡️ Folder Monitor
 - Watches a specific folder (e.g., *Downloads*) for new files.
@@ -35,7 +37,7 @@ If the file passes static analysis but is unknown:
 - **VirusTotal API Key**: (Free at [virustotal.com](https://www.virustotal.com)).
 
 ### 🛠️ Compilation & Execution
-This project is distributed as **Source Code** so you can study how it works.
+This project is distributed as **Source Code** for educational study.
 
 1.  **Clone/Download**: Download the code (button `Code` -> `Download ZIP`).
 2.  **Compile**:
@@ -54,29 +56,37 @@ This project is distributed as **Source Code** so you can study how it works.
 The project includes a file named `test_threat.txt`. This file is harmless but contains a manipulated header to simulate an executable (`MZ...`).
 - When attempting to scan it, TrueSight will detect that its content (looks like an EXE) does not match its extension (.txt), testing the **Anti-Spoofing** functionality.
 
-## ⚠️ Technical Limitations
-To avoid misunderstandings:
-*   **No RAM scanning**: Only files on disk.
-*   **No internal signature database**: Relies 100% on VirusTotal to detect known malware.
-*   **Superficial scanning**: If a virus is encrypted or completely new (Zero-Day) and has correct metadata, TrueSight will not detect it until VirusTotal recognizes it.
+## ⚠️ Limitations & Best Practices
+
+To ensure transparency and manage expectations:
+
+### 1. VirusTotal & False Positives
+You may notice some generic detections (e.g., *Generic.ML*, *Heuristic*, *Suspicious*) when scanning the `TrueSight.exe` itself. This is expected:
+*   **Paranoid Engines**: Cloud engines are often set to maximum sensitivity.
+*   **AI False Positives**: Engines like *SecureAge APEX* often flag unknown, unsigned executables that perform system operations (like hashing or moving files) as suspicious.
+*   **Consensus Matters**: TrueSight uses "Democracy" and "VIP" rules to filter these out in its own scans, but VirusTotal's raw report shows everything. If major vendors (Microsoft, Google, etc.) show "Clean", ignore the noise.
+
+### 2. Offline Mode Limitations
+TrueSight is a **Hybrid Detection System**. Without internet:
+*   **No Cloud Check**: Hash validation against VirusTotal is impossible.
+*   **Reduced Protection**: Reliance shifts entirely to basic local heuristics. Modern malware will likely be missed.
+*   **Action**: Always use with an active internet connection for the "Second Opinion" to work.
+
+### 3. Technical Scope
+*   **No RAM Scanning**: Scans files on disk only.
+*   **No Heuristic Deep Analysis**: Relies on metadata and reputation, not code emulation.
 
 ## 🔒 Privacy
-*   API Keys are stored locally.
-*   Only **Hashes** (digital fingerprints) are sent to VirusTotal, never your full files.
+*   **Local Storage**: API Keys are stored locally on your machine.
+*   **Hash-Only**: Only file **Hashes** (digital fingerprints) are sent to VirusTotal. Your actual files are never uploaded.
 
 ## 🤝 Credits
-Developed as a learning project on file systems and REST APIs in .NET.
+Developed as an educational project on file systems, REST APIs, and C# Security concepts.
 Refactored with AI assistance.
 
 ## 🗑️ Uninstall & Cleanup
-Since this is a portable application (no installer), follow these steps for a complete removal:
+Since this is a portable application (no installer):
 
-1.  **Delete Main Files**: Remove the folder where you compiled/downloaded the code.
-2.  **Remove Saved Data**:
-    *   Press `Win + R`, type `%AppData%`, and press Enter.
-    *   Delete the **TrueSight** folder.
-3.  **Remove Startup Entry** (If configured):
-    *   Open Task Manager (`Ctrl + Shift + Esc`).
-    *   Go to the **Startup apps** tab.
-    *   Right-click **TrueSight** and select **Disable**.
-    *   (Advanced) Or delete the registry key in `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+1.  **Delete Files**: Remove the folder where you compiled/downloaded the code.
+2.  **Remove Saved Data**: Delete the `%AppData%\TrueSight` folder.
+3.  **Remove Startup**: If enabled, disable "TrueSight" in Task Manager > Startup.
