@@ -1,0 +1,4 @@
+This is a test file for Heuristics.
+It contains a suspicious command:
+powershell.exe -Hidden -Command "Invoke-WebRequest..."
+This should be detected by the new LocalScanner.

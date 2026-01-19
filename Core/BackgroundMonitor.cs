@@ -25,10 +25,10 @@ namespace AntivirusScanner.Core
             _config = config;
         }
 
-        public void Start()
+        public bool Start()
         {
-            if (IsRunning) return;
-            if (string.IsNullOrEmpty(_config.TargetFolder) || !Directory.Exists(_config.TargetFolder)) return;
+            if (IsRunning) return true;
+            if (string.IsNullOrEmpty(_config.TargetFolder) || !Directory.Exists(_config.TargetFolder)) return false;
 
             try
             {
@@ -45,10 +45,12 @@ namespace AntivirusScanner.Core
 
                 _watcher.EnableRaisingEvents = true;
                 IsRunning = true;
+                return true;
             }
             catch(Exception ex)
             {
                 Console.WriteLine($"Error starting monitor: {ex.Message}");
+                return false;
             }
         }
 

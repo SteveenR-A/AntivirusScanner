@@ -1,35 +1,11 @@
 using System;
 using System.IO;
-using System.Collections.Generic;
 using System.Text.Json;
 using Microsoft.Win32;
 using System.Security.Cryptography;
 
 namespace AntivirusScanner.Utils
 {
-    public class AppConfig
-    {
-        public string TargetFolder { get; set; } = "";
-        [System.Text.Json.Serialization.JsonIgnore]
-        public string ApiKey { get; set; } = "";
-        public bool StartOnBoot { get; set; } = false;
-        public bool StartMinimized { get; set; } = false;
-        public bool MonitoringEnabled { get; set; } = true;
-
-        public string EncryptedApiKey { get; set; } = ""; // Ciphertext stored in JSON
-
-        public Dictionary<string, FileState> FileStates { get; set; } = new();
-        public Dictionary<string, string> HashHistory { get; set; } = new();
-    }
-
-    public class FileState
-    {
-        public DateTime LastModified { get; set; }
-        public long Size { get; set; }
-        public string Hash { get; set; } = "";
-        public string Status { get; set; } = ""; // SAFE, THREAT, UNKNOWN
-    }
-
     public static class SettingsManager
     {
         // %APPDATA%/TrueSight/config.json
@@ -94,7 +70,7 @@ namespace AntivirusScanner.Utils
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error guardando configuración: {ex.Message}");
+                Console.WriteLine($"Error saving config: {ex.Message}");
             }
         }
         

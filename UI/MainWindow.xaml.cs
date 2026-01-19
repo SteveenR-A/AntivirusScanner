@@ -56,8 +56,13 @@ namespace AntivirusScanner.UI
             contextMenu.Items.Add("Exit", null, (s, e) => FullExit());
             _notifyIcon.ContextMenuStrip = contextMenu;
 
-            // Load logic
-            _config = SettingsManager.Load();
+            // Load logic with Safe Fallback
+            try {
+                _config = SettingsManager.Load();
+            } catch (Exception ex) {
+                MessageBox.Show($"Error loading config: {ex.Message}\nUsing defaults.", "TrueSight", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _config = new AppConfig(); // Fallback
+            }
             _scanner = new Scanner(_config);
             _monitor = new BackgroundMonitor(_scanner, _config);
 
@@ -104,7 +109,11 @@ namespace AntivirusScanner.UI
         {
             if (_config.MonitoringEnabled)
             {
-                _monitor.Start();
+                if (!_monitor.Start()) 
+                {
+                    _config.MonitoringEnabled = false; // Disable if failed
+                    SettingsManager.Save(_config);
+                }
             }
             UpdateMonitorUI();
         }
@@ -136,8 +145,17 @@ namespace AntivirusScanner.UI
             }
             else
             {
-                _monitor.Start();
-                _config.MonitoringEnabled = true;
+                if (_monitor.Start())
+                {
+                    _config.MonitoringEnabled = true;
+                }
+                else
+                {
+                    MessageBox.Show("Could not start monitor.\nCheck if Target Folder exists.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    _config.MonitoringEnabled = false;
+                    ToggleMonitor.IsChecked = false; // Visual revert
+                    return; // Abort save/update
+                }
             }
             SettingsManager.Save(_config);
             UpdateMonitorUI();

@@ -14,27 +14,18 @@ namespace AntivirusScanner.Core
     {
         private AppConfig _config;
         private readonly VirusTotalService _vtService;
+        private readonly LocalScanner _localScanner;
         
         // Events for UI
         public event Action<string>? OnScanStarted;
         public event Action<ScanResult>? OnScanCompleted;
         public event Action<string>? OnThreatFound;
 
-        // Firmas peligrosas (Magic Numbers)
-        private static readonly Dictionary<string, (string Desc, string[] Exts)> Signatures = new()
-        {
-            { "7f454c46", ("ELF (Linux)", new[] { ".elf", ".bin", ".o", ".so" }) },
-            { "4d5a",     ("EXE (Windows)", new[] { ".exe", ".dll", ".msi", ".com", ".sys" }) },
-            { "25504446", ("PDF", new[] { ".pdf" }) },
-            { "504b0304", ("ZIP/Office", new[] { ".zip", ".jar", ".apk", ".docx", ".xlsx" }) }
-        };
-
-        private static readonly string[] MaskExtensions = { ".jpg", ".png", ".txt", ".mp4", ".doc", ".pdf" };
-
         public Scanner(AppConfig config)
         {
             _config = config;
             _vtService = new VirusTotalService();
+            _localScanner = new LocalScanner();
         }
 
         public void UpdateConfig(AppConfig newConfig)
@@ -94,7 +85,16 @@ namespace AntivirusScanner.Core
                     return result;
                 }
 
-                // 2. Capa Histórica (Known Hash)
+                // 2. Capa Histórica (Known Hash) & BLACKLIST (Offline)
+                if (_config.BlacklistedHashes.Contains(hash))
+                {
+                    result.Status = ScanStatus.Threat;
+                    result.ThreatType = ThreatType.Malware;
+                    result.Details = "Detected by Local Blacklist";
+                    HandleAction(result, hash, fileInfo);
+                    return result;
+                }
+
                 if (_config.HashHistory.TryGetValue(hash, out var status) && status == ScanStatus.Safe.ToString())
                 {
                     result.Status = ScanStatus.Safe;
@@ -104,56 +104,46 @@ namespace AntivirusScanner.Core
 
                 // 3. Análisis Profundo
                 
-                // A. Análisis Local (Firmas)
-                var localCheck = CheckLocalSignatures(filePath);
-                if (localCheck.Status != ScanStatus.Safe)
+                // A. Análisis Local (Firmas & Heurística)
+                var localMetadata = _localScanner.CheckLocalSignatures(filePath);
+                if (localMetadata.Status != ScanStatus.Safe)
                 {
-                    result = localCheck;
+                    result = localMetadata;
+                    // Dont return yet, we might want to verify with VT if just suspicious? for now return
                 }
                 else
                 {
-                    // B. VirusTotal
-                    if (!string.IsNullOrEmpty(_config.ApiKey))
+                    // Heurística de strings
+                    var heuristic = _localScanner.ScanFileContent(filePath);
+                    if (heuristic.Status != ScanStatus.Safe)
                     {
-                        int vtDetections = await _vtService.CheckFileHashAsync(hash, _config.ApiKey);
-                        if (vtDetections > 0)
+                        result = heuristic;
+                    }
+                    else
+                    {
+                        // B. VirusTotal
+                        if (!string.IsNullOrEmpty(_config.ApiKey))
                         {
-                            result.Status = ScanStatus.Threat;
-                            result.ThreatType = ThreatType.Malware;
-                            result.Details = $"VirusTotal: {vtDetections} detecciones";
+                            int vtDetections = await _vtService.CheckFileHashAsync(hash, _config.ApiKey);
+                            if (vtDetections > 0)
+                            {
+                                result.Status = ScanStatus.Threat;
+                                result.ThreatType = ThreatType.Malware;
+                                result.Details = $"VirusTotal: {vtDetections} detections";
+                                
+                                // Save to Blacklist
+                                _config.BlacklistedHashes.Add(hash);
+                            }
+                            else if (vtDetections == 0)
+                            {
+                                 result.Status = ScanStatus.Safe;
+                            }
+                            // If -1 (Error/RateLimit), we default to Safe locally but don't cache as Safe
                         }
-                        else if (vtDetections == 0)
-                        {
-                             result.Status = ScanStatus.Safe;
-                        }
-                        // If -1 (Error/RateLimit), we default to Safe locally but don't cache as Safe
                     }
                 }
 
-                // 4. Acción y Persistencia
-                if (result.Status == ScanStatus.Threat || result.Status == ScanStatus.Suspicious)
-                {
-                    MoveToQuarantine(filePath, result.Details);
-                    OnThreatFound?.Invoke($"Amenaza: {Path.GetFileName(filePath)} ({result.Details})");
-                }
-                else if (result.Status == ScanStatus.Safe)
-                {
-                    _config.HashHistory[hash] = ScanStatus.Safe.ToString();
-                    
-                     // Update State
-                    _config.FileStates[filePath] = new FileState 
-                    { 
-                        LastModified = fileInfo.LastWriteTimeUtc, 
-                        Size = fileInfo.Length, 
-                        Hash = hash,
-                        Status = ScanStatus.Safe.ToString()
-                    };
-                }
-
-                if (result.Status != ScanStatus.Skipped) 
-                    SettingsManager.Save(_config);
-
-                OnScanCompleted?.Invoke(result);
+                HandleAction(result, hash, fileInfo);
                 return result;
 
             }
@@ -165,43 +155,32 @@ namespace AntivirusScanner.Core
             }
         }
 
-        private ScanResult CheckLocalSignatures(string filePath)
+        private void HandleAction(ScanResult result, string hash, FileInfo fileInfo)
         {
-            var result = new ScanResult { FilePath = filePath, Status = ScanStatus.Safe };
-            
-            string magic = GetMagicNumber(filePath);
-            string ext = Path.GetExtension(filePath).ToLower();
-
-            foreach (var sig in Signatures)
+            // 4. Acción y Persistencia
+            if (result.Status == ScanStatus.Threat || result.Status == ScanStatus.Suspicious)
             {
-                if (magic.StartsWith(sig.Key))
-                {
-                    bool validExt = false;
-                    foreach (var valid in sig.Value.Exts) if (ext == valid) validExt = true;
-
-                    if (!validExt)
-                    {
-                        foreach (var mask in MaskExtensions)
-                            if (ext == mask) 
-                            { 
-                                result.Status = ScanStatus.Suspicious; 
-                                result.ThreatType = ThreatType.Spoofing;
-                                result.Details = $"Spoofing ({sig.Value.Desc} como {ext})"; 
-                                return result;
-                            }
-                        
-                        if (sig.Key == "4d5a") 
-                        { 
-                            result.Status = ScanStatus.Suspicious;
-                            result.ThreatType = ThreatType.Spoofing;
-                            result.Details = "Ejecutable oculto";
-                            return result;
-                        }
-                    }
-                    break;
-                }
+                MoveToQuarantine(result.FilePath, result.Details);
+                OnThreatFound?.Invoke($"THREAT: {Path.GetFileName(result.FilePath)} ({result.Details})");
             }
-            return result;
+            else if (result.Status == ScanStatus.Safe)
+            {
+                _config.HashHistory[hash] = ScanStatus.Safe.ToString();
+                
+                 // Update State
+                _config.FileStates[result.FilePath] = new FileState 
+                { 
+                    LastModified = fileInfo.LastWriteTimeUtc, 
+                    Size = fileInfo.Length, 
+                    Hash = hash,
+                    Status = ScanStatus.Safe.ToString()
+                };
+            }
+
+            if (result.Status != ScanStatus.Skipped) 
+                SettingsManager.Save(_config);
+
+            OnScanCompleted?.Invoke(result);
         }
 
         private string ComputeSha256(string filePath)
@@ -212,19 +191,6 @@ namespace AntivirusScanner.Core
                 using var stream = File.OpenRead(filePath);
                 var hash = sha256.ComputeHash(stream);
                 return BitConverter.ToString(hash).Replace("-", "").ToLowerInvariant();
-            }
-            catch { return ""; }
-        }
-
-        private string GetMagicNumber(string filePath)
-        {
-            try
-            {
-                using var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read);
-                using var br = new BinaryReader(fs);
-                if (br.BaseStream.Length < 4) return "";
-                byte[] bytes = br.ReadBytes(4);
-                return BitConverter.ToString(bytes).Replace("-", "").ToLowerInvariant();
             }
             catch { return ""; }
         }
