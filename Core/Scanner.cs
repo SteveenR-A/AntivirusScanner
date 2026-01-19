@@ -13,7 +13,7 @@ namespace AntivirusScanner.Core
     public class Scanner
     {
         private AppConfig _config;
-        private readonly VirusTotalService _vtService;
+        private CloudScanQueue _cloudQueue;
         
         // Events for UI
         public event Action<string>? OnScanStarted;
@@ -23,7 +23,8 @@ namespace AntivirusScanner.Core
         public Scanner(AppConfig config)
         {
             _config = config;
-            _vtService = new VirusTotalService();
+            _cloudQueue = new CloudScanQueue(config);
+            _cloudQueue.OnCloudResult += HandleCloudResult;
         }
 
         public void UpdateConfig(AppConfig newConfig)
@@ -100,7 +101,22 @@ namespace AntivirusScanner.Core
                 bool potentialCacheHit = TryGetCachedState(filePath, fileInfo, out var cachedState);
 
                 // 2. ALWAYS Calculate Hash & Refresh Metadata (TOCTOU Fix)
-                string hash = ComputeSha256(filePath);
+                // OPTIMIZATION: Skip Hash for large files (>50MB) to prevent I/O bottleneck
+                string hash = string.Empty;
+                if (fileInfo.Length < 50 * 1024 * 1024)
+                {
+                    hash = ComputeSha256(filePath);
+                }
+                else
+                {
+                    return new ScanResult 
+                    { 
+                        FilePath = filePath, 
+                        Status = ScanStatus.Skipped, 
+                        Details = "File too large for deep scan (>50MB)" 
+                    };
+                }
+
                 if (string.IsNullOrEmpty(hash)) 
                 {
                     result.Status = ScanStatus.Error;
@@ -109,12 +125,41 @@ namespace AntivirusScanner.Core
                 fileInfo.Refresh(); 
 
                 // 3. ALWAYS Run Local Heuristics (Hybrid Scan)
-                result = PerformLocalScan(filePath);
+                // 3. ALWAYS Run Local Heuristics (Hybrid Scan)
+                result = PerformLocalScan(filePath, hash);
 
-                // 4. Cloud Check (VirusTotal) - with TTL & Cache Logic
+                // 4. Cloud Check (VirusTotal) - Queue Strategy
                 if (result.Status == ScanStatus.Safe)
                 {
-                    result = await PerformCloudScan(_config, filePath, hash, potentialCacheHit, cachedState, result);
+                    // Check Local Blacklist first
+                    if (_config.BlacklistedHashes.Contains(hash))
+                    {
+                        result.Status = ScanStatus.Threat;
+                        result.ThreatType = ThreatType.Malware;
+                        result.Details = "Detected by Local Blacklist";
+                    }
+                    else
+                    {
+                        // Check Cache TTL
+                        bool useCache = false;
+                        if (potentialCacheHit && cachedState != null && cachedState.Status == ScanStatus.Safe.ToString())
+                        {
+                            int ttlDays = IsCriticalFile(filePath) ? 7 : 30;
+                            var age = DateTime.UtcNow - cachedState.LastScanned;
+                            if (age.TotalDays < ttlDays)
+                            {
+                                useCache = true;
+                                // Still Safe, details preserved
+                            }
+                        }
+
+                        if (!useCache && !string.IsNullOrEmpty(_config.ApiKey))
+                        {
+                            // Enqueue for Cloud Scan
+                            _cloudQueue.Enqueue(filePath, hash);
+                            result.Details = "Verified Locally (Queued for Cloud check)";
+                        }
+                    }
                 }
 
                 HandleAction(result, hash, fileInfo);
@@ -142,8 +187,20 @@ namespace AntivirusScanner.Core
             return false;
         }
 
-        private static ScanResult PerformLocalScan(string filePath)
+        private static ScanResult PerformLocalScan(string filePath, string hash)
         {
+            // 0. Specific Hash Check (EICAR)
+            if (LocalScanner.IsEicarHash(hash))
+            {
+                return new ScanResult
+                {
+                    FilePath = filePath,
+                    Status = ScanStatus.Threat,
+                    ThreatType = ThreatType.Malware,
+                    Details = "Critical: EICAR Test File Detected (Hash Match)"
+                };
+            }
+
             // A. Local Signatures
             var localMetadata = LocalScanner.CheckLocalSignatures(filePath);
             if (localMetadata.Status != ScanStatus.Safe)
@@ -155,74 +212,17 @@ namespace AntivirusScanner.Core
             return LocalScanner.ScanFileContent(filePath);
         }
 
-        private async Task<ScanResult> PerformCloudScan(AppConfig _config, string filePath, string hash, bool potentialCacheHit, FileState? cachedState, ScanResult currentResult)
+        private void HandleCloudResult(ScanResult result)
         {
-            // If Local is CLEAN, we can check Cache to skip VT
-            if (potentialCacheHit && cachedState != null && cachedState.Status == ScanStatus.Safe.ToString())
+            // If threat, take action immediately
+            if (result.Status == ScanStatus.Threat)
             {
-                // Check TTL (Smart Strategy)
-                int ttlDays = IsCriticalFile(filePath) ? 7 : 30;
-                
-                var age = DateTime.UtcNow - cachedState.LastScanned;
-                if (age.TotalDays < ttlDays)
-                {
-                    return new ScanResult { FilePath = filePath, Status = ScanStatus.Skipped, Details = currentResult.Details };
-                }
-            }
-
-            // Also check HashHistory (for moved files)
-            if (_config.BlacklistedHashes.Contains(hash))
-            {
-                return new ScanResult 
-                { 
-                    FilePath = filePath, 
-                    Status = ScanStatus.Threat, 
-                    ThreatType = ThreatType.Malware, 
-                    Details = "Detected by Local Blacklist" 
-                };
+                MoveToQuarantine(result.FilePath, result.Details);
+                OnThreatFound?.Invoke($"THREAT (Cloud): {Path.GetFileName(result.FilePath)} ({result.Details})");
             }
             
-            // If still considered Safe locally, check VT
-            if (!string.IsNullOrEmpty(_config.ApiKey))
-            {
-                int vtDetections = await _vtService.CheckFileHashAsync(hash, _config); // Changed to pass _config
-
-                if (vtDetections == -2) // Quota Exceeded
-                {
-                    return new ScanResult
-                    {
-                        FilePath = filePath,
-                        Status = ScanStatus.Skipped,
-                        Details = "Daily Quota Exceeded (500/500)"
-                    };
-                }
-                else if (vtDetections > 0)
-                {
-                    _config.BlacklistedHashes.Add(hash);
-                    return new ScanResult 
-                    { 
-                        FilePath = filePath, 
-                        Status = ScanStatus.Threat, 
-                        ThreatType = ThreatType.Malware, 
-                        Details = $"VirusTotal: {vtDetections} detections" 
-                    };
-                }
-                else if (vtDetections == 0)
-                {
-                     return currentResult;
-                }
-                else // This covers other errors like -1 (API error)
-                {
-                    return new ScanResult 
-                    { 
-                        FilePath = filePath, 
-                        Status = ScanStatus.Error, 
-                        Details = "VirusTotal Scan Failed (Offline/Limit)" 
-                    }; 
-                }
-            }
-            
-            return currentResult;
+            // Notify UI
+            OnScanCompleted?.Invoke(result);
         }
 
         private void HandleAction(ScanResult result, string hash, FileInfo fileInfo)

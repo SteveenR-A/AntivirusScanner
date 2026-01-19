@@ -47,30 +47,35 @@ namespace AntivirusScanner.Utils
             return config;
         }
 
+        private static readonly object _saveLock = new object();
+
         public static void Save(AppConfig config)
         {
-            try
+            lock (_saveLock)
             {
-                if (!Directory.Exists(ConfigDir)) Directory.CreateDirectory(ConfigDir);
-                
-                // Encrypt API Key before saving
-                if (!string.IsNullOrEmpty(config.ApiKey))
+                try
                 {
-                    config.EncryptedApiKey = Protect(config.ApiKey);
+                    if (!Directory.Exists(ConfigDir)) Directory.CreateDirectory(ConfigDir);
+                    
+                    // Encrypt API Key before saving
+                    if (!string.IsNullOrEmpty(config.ApiKey))
+                    {
+                        config.EncryptedApiKey = Protect(config.ApiKey);
+                    }
+                    else
+                    {
+                        config.EncryptedApiKey = "";
+                    }
+
+                    string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
+                    File.WriteAllText(ConfigFile, json);
+
+                    SetAutoStart(config.StartOnBoot);
                 }
-                else
+                catch (Exception ex)
                 {
-                    config.EncryptedApiKey = "";
+                    Console.WriteLine($"Error saving config: {ex.Message}");
                 }
-
-                string json = JsonSerializer.Serialize(config, new JsonSerializerOptions { WriteIndented = true });
-                File.WriteAllText(ConfigFile, json);
-
-                SetAutoStart(config.StartOnBoot);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error saving config: {ex.Message}");
             }
         }
         

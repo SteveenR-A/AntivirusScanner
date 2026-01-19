@@ -12,8 +12,7 @@ namespace AntivirusScanner.Core
         // Reglas más específicas para evitar falsos positivos
         private static readonly Dictionary<string, byte[]> StrongSignatures = new()
         {
-            // EICAR Test File (Firma estándar mundial para pruebas de AV)
-            { "EICAR Test Signature", Convert.FromBase64String("WDVPIVAlQEFQWzRcUFpYNTQoUF4pN0NDKTd9JEVJQ0FSLVNUQU5EQVJELUFOVElWSVJVUy1URVNULUZJTEUhJEgrSCo=") }
+             // EICAR removed (Covered by Hash check)
         };
 
         // Strings sospechosos para heurística (Solo alertar si hay entropía alta o es un EXE)
@@ -84,7 +83,16 @@ namespace AntivirusScanner.Core
 
         private static bool IsExtensionValid(string ext, string[] validExtensions) => validExtensions.Contains(ext);
 
+
+        
         private static bool IsMaskExtension(string ext) => MaskExtensions.Contains(ext);
+
+        private const string EicarSha256 = "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f";
+
+        public static bool IsEicarHash(string hash)
+        {
+            return string.Equals(hash, EicarSha256, StringComparison.OrdinalIgnoreCase);
+        }
 
         public static ScanResult ScanFileContent(string filePath)
         {
