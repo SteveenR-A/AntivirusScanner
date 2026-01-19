@@ -48,7 +48,7 @@ namespace AntivirusScanner.Core
             SettingsManager.Save(_config);
         }
 
-        private IEnumerable<string> GetSafeFiles(string rootPath)
+        private static IEnumerable<string> GetSafeFiles(string rootPath)
         {
             var pending = new Stack<string>();
             pending.Push(rootPath);
@@ -244,7 +244,7 @@ namespace AntivirusScanner.Core
             OnScanCompleted?.Invoke(result);
         }
 
-        private string ComputeSha256(string filePath)
+        private static string ComputeSha256(string filePath)
         {
             try
             {
@@ -256,7 +256,7 @@ namespace AntivirusScanner.Core
             catch { return ""; }
         }
 
-        private void MoveToQuarantine(string filePath, string reason)
+        private static void MoveToQuarantine(string filePath, string reason)
         {
             try
             {
@@ -307,7 +307,7 @@ namespace AntivirusScanner.Core
                 Console.WriteLine($"Error moving to quarantine: {ex.Message}");
             }
         }
-        private bool IsCriticalFile(string filePath)
+        private static bool IsCriticalFile(string filePath)
         {
             try
             {
