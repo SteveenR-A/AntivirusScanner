@@ -83,6 +83,11 @@ namespace AntivirusScanner.UI
                      {
                          // Already logged by threat found
                      }
+                     else if (result.Status == ScanStatus.Skipped)
+                     {
+                         // User requested notification for quota/skipped items
+                         LogActivity($"⚠️ Skipped: {System.IO.Path.GetFileName(result.FilePath)} - {result.Details}");
+                     }
                      else if (result.Status != ScanStatus.Skipped)
                      {
                          LogActivity($"✅ Scanned: {System.IO.Path.GetFileName(result.FilePath)} (Safe)");

@@ -15,6 +15,11 @@ namespace AntivirusScanner.Utils
 
         public Dictionary<string, FileState> FileStates { get; set; } = new();
         public Dictionary<string, string> HashHistory { get; set; } = new();
+        
+        // Control de Cuota Diaria (Free tier limit)
+        public int DailyApiUsage { get; set; } = 0;
+        public DateTime LastApiDate { get; set; } = DateTime.MinValue;
+
         public HashSet<string> BlacklistedHashes { get; set; } = new(); // Offline Blacklist
     }
 }

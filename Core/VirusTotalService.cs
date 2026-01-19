@@ -19,9 +19,22 @@ namespace AntivirusScanner.Core
             _client = new HttpClient();
         }
 
-        public async Task<int> CheckFileHashAsync(string hash, string apiKey)
+        public async Task<int> CheckFileHashAsync(string hash, AntivirusScanner.Utils.AppConfig config)
         {
-            if (string.IsNullOrEmpty(apiKey)) return 0;
+            if (string.IsNullOrEmpty(config.ApiKey)) return 0;
+
+            // 1. Daily Reset Logic
+            if (config.LastApiDate.Date < DateTime.UtcNow.Date)
+            {
+                config.DailyApiUsage = 0;
+                config.LastApiDate = DateTime.UtcNow.Date;
+            }
+
+            // 2. Daily Quota Check (500 limit)
+            if (config.DailyApiUsage >= 500)
+            {
+                return -2; // Code for 'Quota Exceeded'
+            }
 
             // Handle Rate Limiting (Token Bucket / Time check)
             var now = DateTime.Now;
@@ -32,16 +45,19 @@ namespace AntivirusScanner.Core
                 await Task.Delay(waitTime);
             }
 
-            // Set next allowed time immediately to prevent race conditions or parallel excessive calls
+            // Set next allowed time immediately
             _nextAllowedRequest = DateTime.Now.Add(_rateLimitInterval);
 
             try
             {
-                // Prepare request
                 using var request = new HttpRequestMessage(HttpMethod.Get, $"https://www.virustotal.com/api/v3/files/{hash}");
-                request.Headers.Add("x-apikey", apiKey);
+                request.Headers.Add("x-apikey", config.ApiKey);
 
                 using var response = await _client.SendAsync(request);
+
+                // Increment usage regardless of success to be safe/conservative
+                config.DailyApiUsage++;
+                config.LastApiDate = DateTime.UtcNow.Date;
 
                 if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
                 {
@@ -53,7 +69,7 @@ namespace AntivirusScanner.Core
                     // Penalization: wait longer if we hit the limit
                     _nextAllowedRequest = DateTime.Now.AddSeconds(60); 
                     Debug.WriteLine("[VirusTotal] Quota exceeded (429). Backing off for 60s.");
-                    return -1; // Specific error code for Rate Limit? Or handle upstream?
+                    return -1;
                 }
 
                 if (!response.IsSuccessStatusCode)

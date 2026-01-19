@@ -114,7 +114,7 @@ namespace AntivirusScanner.Core
                 // 4. Cloud Check (VirusTotal) - with TTL & Cache Logic
                 if (result.Status == ScanStatus.Safe)
                 {
-                    result = await PerformCloudScan(filePath, hash, potentialCacheHit, cachedState, result);
+                    result = await PerformCloudScan(_config, filePath, hash, potentialCacheHit, cachedState, result);
                 }
 
                 HandleAction(result, hash, fileInfo);
@@ -155,7 +155,7 @@ namespace AntivirusScanner.Core
             return LocalScanner.ScanFileContent(filePath);
         }
 
-        private async Task<ScanResult> PerformCloudScan(string filePath, string hash, bool potentialCacheHit, FileState? cachedState, ScanResult currentResult)
+        private async Task<ScanResult> PerformCloudScan(AppConfig _config, string filePath, string hash, bool potentialCacheHit, FileState? cachedState, ScanResult currentResult)
         {
             // If Local is CLEAN, we can check Cache to skip VT
             if (potentialCacheHit && cachedState != null && cachedState.Status == ScanStatus.Safe.ToString())
@@ -185,8 +185,18 @@ namespace AntivirusScanner.Core
             // If still considered Safe locally, check VT
             if (!string.IsNullOrEmpty(_config.ApiKey))
             {
-                int vtDetections = await _vtService.CheckFileHashAsync(hash, _config.ApiKey);
-                if (vtDetections > 0)
+                int vtDetections = await _vtService.CheckFileHashAsync(hash, _config); // Changed to pass _config
+
+                if (vtDetections == -2) // Quota Exceeded
+                {
+                    return new ScanResult
+                    {
+                        FilePath = filePath,
+                        Status = ScanStatus.Skipped,
+                        Details = "Daily Quota Exceeded (500/500)"
+                    };
+                }
+                else if (vtDetections > 0)
                 {
                     _config.BlacklistedHashes.Add(hash);
                     return new ScanResult 
@@ -201,7 +211,7 @@ namespace AntivirusScanner.Core
                 {
                      return currentResult;
                 }
-                else
+                else // This covers other errors like -1 (API error)
                 {
                     return new ScanResult 
                     { 
