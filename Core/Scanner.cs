@@ -97,22 +97,7 @@ namespace AntivirusScanner.Core
                 OnScanStarted?.Invoke(Path.GetFileName(filePath));
 
                 // 1. Capa Rápida (Smart Cache)
-                bool potentialCacheHit = false;
-                FileState? cachedState = null;
-
-                if (_config.FileStates.TryGetValue(filePath, out var oldState))
-                {
-                    // Check if file changed (Size/Time)
-                    if (oldState.LastModified == fileInfo.LastWriteTimeUtc && oldState.Size == fileInfo.Length)
-                    {
-                        potentialCacheHit = true;
-                        cachedState = oldState;
-                    }
-                    else
-                    {
-                        // File changed, invalidate cache (implicitly by not setting potentialCacheHit)
-                    }
-                }
+                bool potentialCacheHit = TryGetCachedState(filePath, fileInfo, out var cachedState);
 
                 // 2. ALWAYS Calculate Hash & Refresh Metadata (TOCTOU Fix)
                 string hash = ComputeSha256(filePath);
@@ -124,104 +109,12 @@ namespace AntivirusScanner.Core
                 fileInfo.Refresh(); 
 
                 // 3. ALWAYS Run Local Heuristics (Hybrid Scan)
-                // "Revalidación forzada si hay heurística sospechosa" -> We always check local signs.
-                
-                // A. Local Signatures
-                var localMetadata = LocalScanner.CheckLocalSignatures(filePath);
-                if (localMetadata.Status != ScanStatus.Safe)
-                {
-                    result = localMetadata;
-                    // If local is suspicious, we might want to Confirm with VT (bypass cache)
-                }
-                else
-                {
-                    // B. Byte Patterns & Entropy
-                    var heuristic = LocalScanner.ScanFileContent(filePath);
-                    if (heuristic.Status != ScanStatus.Safe)
-                    {
-                        result = heuristic;
-                    }
-                }
-
-                bool localIsClean = result.Status == ScanStatus.Safe;
+                result = PerformLocalScan(filePath);
 
                 // 4. Cloud Check (VirusTotal) - with TTL & Cache Logic
-                if (localIsClean)
+                if (result.Status == ScanStatus.Safe)
                 {
-                    // If Local is CLEAN, we can check Cache to skip VT
-                    if (potentialCacheHit && cachedState != null && cachedState.Status == ScanStatus.Safe.ToString())
-                    {
-                        // Check TTL (Smart Strategy)
-                        // Critical files (exe, scripts) = 7 Days
-                        // Passive files (txt, img) = 30 Days (Save API Quota)
-                        int ttlDays = IsCriticalFile(filePath) ? 7 : 30;
-                        
-                        var age = DateTime.UtcNow - cachedState.LastScanned;
-                        if (age.TotalDays < ttlDays)
-                        {
-                            result.Status = ScanStatus.Skipped; // Safe & Valid Cache
-                            OnScanCompleted?.Invoke(result);
-                            return result;
-                        }
-                        // Expired -> Fall through to VT
-                    }
-
-                    // Also check HashHistory (for moved files)
-                    if (_config.BlacklistedHashes.Contains(hash))
-                    {
-                        result.Status = ScanStatus.Threat;
-                        result.ThreatType = ThreatType.Malware;
-                        result.Details = "Detected by Local Blacklist";
-                    }
-                    else if (_config.HashHistory.TryGetValue(hash, out var status) && status == ScanStatus.Safe.ToString())
-                    {
-                        // Hash known safe, BUT check if we need to re-verify due to TTL?
-                        // HashHistory doesn't store date. We rely on FileState for TTL on specific files.
-                        // If it's a new file with known hash, we ideally trust the hash... 
-                        // BUT user wants weekly revalidation.
-                        // For simplicity: If Cache (FileState) missed, we DO check VT to be safe, 
-                        // unless we want to trust HashHistory globally. 
-                        // Use a conservative approach: If FileState missed (new file), check VT. 
-                        // HashHistory is a backup if VT fails or specific optimization.
-                    
-                        // Current logic: If HashHistory says safe, we return Safe.
-                        // To implement "Weekly Revalidation" properly without bloating HashHistory with dates,
-                        // we generally rely on FileState. 
-                        // For now, let's allow HashHistory to skip VT, assuming HashHistory is cleared or managed elsewhere,
-                        // OR we just accept that HashHistory implies "Global Trust".
-                        
-                        // However, to strictly follow "Revalidación semanal", we should probably NOT trust HashHistory 
-                        // without a timestamp. Since HashHistory is simple <string, string>, it's timeless.
-                        // Let's degrade HashHistory to "Soft Trust" -> If not in Blacklist, we check VT anyway 
-                        // if we want strict freshness.
-                        
-                        // OPTIMIZATION: If we scanned this EXACT file path < 7 days ago, we skipped above.
-                        // If we are here, either it's a new file or expired.
-                        // So checking VT is the correct "Fresh" action.
-                    }
-
-                    // If still considered Safe locally, check VT
-                    if (result.Status == ScanStatus.Safe && !string.IsNullOrEmpty(_config.ApiKey))
-                    {
-                        int vtDetections = await _vtService.CheckFileHashAsync(hash, _config.ApiKey);
-                        if (vtDetections > 0)
-                        {
-                            result.Status = ScanStatus.Threat;
-                            result.ThreatType = ThreatType.Malware;
-                            result.Details = $"VirusTotal: {vtDetections} detections";
-                            _config.BlacklistedHashes.Add(hash);
-                        }
-                        else if (vtDetections == 0)
-                        {
-                             result.Status = ScanStatus.Safe;
-                        }
-                        else
-                        {
-                            // Error/Limit -> Fail Open Fix from before
-                            result.Status = ScanStatus.Error; 
-                            result.Details = "VirusTotal Scan Failed (Offline/Limit)";
-                        }
-                    }
+                    result = await PerformCloudScan(filePath, hash, potentialCacheHit, cachedState, result);
                 }
 
                 HandleAction(result, hash, fileInfo);
@@ -234,6 +127,93 @@ namespace AntivirusScanner.Core
                 result.Details = ex.Message;
                 return result;
             }
+        }
+
+        private bool TryGetCachedState(string filePath, FileInfo fileInfo, out FileState? cachedState)
+        {
+            cachedState = null;
+            if (_config.FileStates.TryGetValue(filePath, out var oldState))
+            {
+                if (oldState.LastModified == fileInfo.LastWriteTimeUtc && oldState.Size == fileInfo.Length)
+                {
+                    cachedState = oldState;
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static ScanResult PerformLocalScan(string filePath)
+        {
+            // A. Local Signatures
+            var localMetadata = LocalScanner.CheckLocalSignatures(filePath);
+            if (localMetadata.Status != ScanStatus.Safe)
+            {
+                return localMetadata;
+            }
+
+            // B. Byte Patterns & Entropy
+            return LocalScanner.ScanFileContent(filePath);
+        }
+
+        private async Task<ScanResult> PerformCloudScan(string filePath, string hash, bool potentialCacheHit, FileState? cachedState, ScanResult currentResult)
+        {
+            // If Local is CLEAN, we can check Cache to skip VT
+            if (potentialCacheHit && cachedState != null && cachedState.Status == ScanStatus.Safe.ToString())
+            {
+                // Check TTL (Smart Strategy)
+                int ttlDays = IsCriticalFile(filePath) ? 7 : 30;
+                
+                var age = DateTime.UtcNow - cachedState.LastScanned;
+                if (age.TotalDays < ttlDays)
+                {
+                    return new ScanResult { FilePath = filePath, Status = ScanStatus.Skipped, Details = currentResult.Details };
+                }
+            }
+
+            // Also check HashHistory (for moved files)
+            if (_config.BlacklistedHashes.Contains(hash))
+            {
+                return new ScanResult 
+                { 
+                    FilePath = filePath, 
+                    Status = ScanStatus.Threat, 
+                    ThreatType = ThreatType.Malware, 
+                    Details = "Detected by Local Blacklist" 
+                };
+            }
+            
+            // If still considered Safe locally, check VT
+            if (!string.IsNullOrEmpty(_config.ApiKey))
+            {
+                int vtDetections = await _vtService.CheckFileHashAsync(hash, _config.ApiKey);
+                if (vtDetections > 0)
+                {
+                    _config.BlacklistedHashes.Add(hash);
+                    return new ScanResult 
+                    { 
+                        FilePath = filePath, 
+                        Status = ScanStatus.Threat, 
+                        ThreatType = ThreatType.Malware, 
+                        Details = $"VirusTotal: {vtDetections} detections" 
+                    };
+                }
+                else if (vtDetections == 0)
+                {
+                     return currentResult;
+                }
+                else
+                {
+                    return new ScanResult 
+                    { 
+                        FilePath = filePath, 
+                        Status = ScanStatus.Error, 
+                        Details = "VirusTotal Scan Failed (Offline/Limit)" 
+                    }; 
+                }
+            }
+            
+            return currentResult;
         }
 
         private void HandleAction(ScanResult result, string hash, FileInfo fileInfo)
