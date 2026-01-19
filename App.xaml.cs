@@ -7,27 +7,59 @@ namespace AntivirusScanner
     public partial class App : System.Windows.Application
     {
         private static Mutex? _mutex = null;
+        private static EventWaitHandle? _eventWaitHandle = null;
+        private const string UniqueEventName = "Global\\TrueSight_Signal";
+        private const string UniqueMutexName = "Global\\TrueSight_SingleInstance";
 
         protected override void OnStartup(StartupEventArgs e)
         {
-            const string appName = "TrueSight_SingleInstance";
+            const string appName = UniqueMutexName;
             bool createdNew;
 
             _mutex = new Mutex(true, appName, out createdNew);
 
             if (!createdNew)
             {
-                // Ya se está ejecutando -> Traer al frente
-                IntPtr hWnd = FindWindow(null, "TrueSight");
-                if (hWnd != IntPtr.Zero)
+                // Already running -> Signal the first instance
+                try
                 {
-                    ShowWindow(hWnd, 9); // SW_RESTORE = 9
-                    SetForegroundWindow(hWnd);
+                    using (var eventHandle = EventWaitHandle.OpenExisting(UniqueEventName))
+                    {
+                        eventHandle.Set();
+                    }
                 }
+                catch 
+                { 
+                    // Ignore if fail, maybe first instance is closing
+                }
+                
                 Current.Shutdown();
                 return;
             }
             
+            // Init Signal Listener
+            _eventWaitHandle = new EventWaitHandle(false, EventResetMode.AutoReset, UniqueEventName);
+            Task.Run(() => 
+            {
+                while (true)
+                {
+                    _eventWaitHandle.WaitOne();
+                    Dispatcher.Invoke(() => 
+                    {
+                        var mw = Current.MainWindow;
+                        if (mw != null)
+                        {
+                            mw.Show();
+                            if (mw.WindowState == WindowState.Minimized) 
+                                mw.WindowState = WindowState.Normal;
+                            mw.Activate();
+                            mw.Topmost = true;  // Brief topmost to ensure visibility
+                            mw.Topmost = false;
+                        }
+                    });
+                }
+            });
+
             base.OnStartup(e);
 
             // Global Error Handling
@@ -38,21 +70,16 @@ namespace AntivirusScanner
             };
         }
 
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        private static extern IntPtr FindWindow(string? lpClassName, string lpWindowName);
-
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
-        private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-        [System.Runtime.InteropServices.DllImport("user32.dll")]
-        private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-
         protected override void OnExit(ExitEventArgs e)
         {
             if (_mutex != null)
             {
                 _mutex.ReleaseMutex();
+                _mutex.Dispose();
+            }
+            if (_eventWaitHandle != null)
+            {
+                _eventWaitHandle.Dispose();
             }
             base.OnExit(e);
         }
