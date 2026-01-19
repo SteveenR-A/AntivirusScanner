@@ -136,27 +136,66 @@ namespace AntivirusScanner.Core
 
         private static ScanResult ScanStreamForPatterns(string filePath)
         {
-            const int BUFFER_SIZE = 4096;
-            const int OVERLAP = 128;
+            const long LARGE_FILE_THRESHOLD = 50 * 1024 * 1024; // 50MB
+            const long SCAN_CHUNK_SIZE = 5 * 1024 * 1024; // 5MB
 
             using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
-                byte[] buffer = new byte[BUFFER_SIZE];
-                int bytesRead;
-                byte[] carryOver = new byte[0];
-
-                while ((bytesRead = fs.Read(buffer, 0, BUFFER_SIZE)) > 0)
+                if (fs.Length > LARGE_FILE_THRESHOLD)
                 {
-                    byte[] searchWindow = CreateSearchWindow(buffer, bytesRead, carryOver);
+                    // Scan Head
+                    fs.Position = 0;
+                    var match = ScanStreamSegment(fs, SCAN_CHUNK_SIZE);
+                    if (match != null)
+                    {
+                        match.FilePath = filePath;
+                        return match;
+                    }
 
-                    var match = CheckPatterns(searchWindow);
-                    if (match != null) return match;
-
-                    carryOver = UpdateCarryOver(buffer, bytesRead, OVERLAP);
+                    // Scan Tail
+                    fs.Position = Math.Max(0, fs.Length - SCAN_CHUNK_SIZE);
+                    match = ScanStreamSegment(fs, SCAN_CHUNK_SIZE);
+                    if (match != null)
+                    {
+                        match.FilePath = filePath;
+                        return match;
+                    }
+                }
+                else
+                {
+                    var match = ScanStreamSegment(fs, fs.Length);
+                    if (match != null)
+                    {
+                        match.FilePath = filePath;
+                        return match;
+                    }
                 }
             }
 
             return new ScanResult { FilePath = filePath, Status = ScanStatus.Safe };
+        }
+
+        private static ScanResult? ScanStreamSegment(Stream fs, long maxBytesToRead)
+        {
+            const int BUFFER_SIZE = 4096;
+            const int OVERLAP = 128;
+
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int bytesRead;
+            byte[] carryOver = new byte[0];
+            long totalRead = 0;
+
+            while (totalRead < maxBytesToRead && (bytesRead = fs.Read(buffer, 0, BUFFER_SIZE)) > 0)
+            {
+                totalRead += bytesRead;
+                byte[] searchWindow = CreateSearchWindow(buffer, bytesRead, carryOver);
+
+                var match = CheckPatterns(searchWindow);
+                if (match != null) return match;
+
+                carryOver = UpdateCarryOver(buffer, bytesRead, OVERLAP);
+            }
+            return null;
         }
 
         private static byte[] CreateSearchWindow(byte[] buffer, int bytesRead, byte[] carryOver)
