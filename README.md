@@ -65,3 +65,16 @@ To avoid misunderstandings:
 ## 🤝 Credits
 Developed as a learning project on file systems and REST APIs in .NET.
 Refactored with AI assistance.
+
+## 🗑️ Uninstall & Cleanup
+Since this is a portable application (no installer), follow these steps for a complete removal:
+
+1.  **Delete Main Files**: Remove the folder where you compiled/downloaded the code.
+2.  **Remove Saved Data**:
+    *   Press `Win + R`, type `%AppData%`, and press Enter.
+    *   Delete the **TrueSight** folder.
+3.  **Remove Startup Entry** (If configured):
+    *   Open Task Manager (`Ctrl + Shift + Esc`).
+    *   Go to the **Startup apps** tab.
+    *   Right-click **TrueSight** and select **Disable**.
+    *   (Advanced) Or delete the registry key in `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
