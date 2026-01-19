@@ -83,14 +83,8 @@ namespace AntivirusScanner.Core
 
         public async Task<ScanResult> ScanFile(string filePath)
         {
-            var result = new ScanResult { FilePath = filePath, Status = ScanStatus.Safe };
-            
             if (!File.Exists(filePath)) 
-            {
-                result.Status = ScanStatus.Error;
-                result.Details = "File not found";
-                return result;
-            }
+                return new ScanResult { FilePath = filePath, Status = ScanStatus.Error, Details = "File not found" };
 
             try
             {
@@ -100,77 +94,86 @@ namespace AntivirusScanner.Core
                 // 1. Capa Rápida (Smart Cache)
                 bool potentialCacheHit = TryGetCachedState(filePath, fileInfo, out var cachedState);
 
-                // 2. ALWAYS Calculate Hash & Refresh Metadata (TOCTOU Fix)
-                // OPTIMIZATION: Skip Hash for large files (>50MB) to prevent I/O bottleneck
-                string hash = string.Empty;
-                if (fileInfo.Length < 50 * 1024 * 1024)
+                // 2. Calculate Hash (includes Size Check)
+                if (!TryComputeHash(filePath, fileInfo, out string hash, out ScanResult? errorResult))
                 {
-                    hash = ComputeSha256(filePath);
+                    return errorResult ?? new ScanResult { FilePath = filePath, Status = ScanStatus.Error };
                 }
-                else
-                {
-                    return new ScanResult 
-                    { 
-                        FilePath = filePath, 
-                        Status = ScanStatus.Skipped, 
-                        Details = "File too large for deep scan (>50MB)" 
-                    };
-                }
-
-                if (string.IsNullOrEmpty(hash)) 
-                {
-                    result.Status = ScanStatus.Error;
-                    return result;
-                }
+                
                 fileInfo.Refresh(); 
 
                 // 3. ALWAYS Run Local Heuristics (Hybrid Scan)
-                // 3. ALWAYS Run Local Heuristics (Hybrid Scan)
-                result = PerformLocalScan(filePath, hash);
+                var result = PerformLocalScan(filePath, hash);
 
                 // 4. Cloud Check (VirusTotal) - Queue Strategy
                 if (result.Status == ScanStatus.Safe)
                 {
-                    // Check Local Blacklist first
-                    if (_config.BlacklistedHashes.Contains(hash))
-                    {
-                        result.Status = ScanStatus.Threat;
-                        result.ThreatType = ThreatType.Malware;
-                        result.Details = "Detected by Local Blacklist";
-                    }
-                    else
-                    {
-                        // Check Cache TTL
-                        bool useCache = false;
-                        if (potentialCacheHit && cachedState != null && cachedState.Status == ScanStatus.Safe.ToString())
-                        {
-                            int ttlDays = IsCriticalFile(filePath) ? 7 : 30;
-                            var age = DateTime.UtcNow - cachedState.LastScanned;
-                            if (age.TotalDays < ttlDays)
-                            {
-                                useCache = true;
-                                // Still Safe, details preserved
-                            }
-                        }
-
-                        if (!useCache && !string.IsNullOrEmpty(_config.ApiKey))
-                        {
-                            // Enqueue for Cloud Scan
-                            _cloudQueue.Enqueue(filePath, hash);
-                            result.Details = "Verified Locally (Queued for Cloud check)";
-                        }
-                    }
+                    ProcessCloudStrategy(filePath, hash, potentialCacheHit, cachedState, ref result);
                 }
 
                 HandleAction(result, hash, fileInfo);
                 return result;
-
             }
             catch (Exception ex)
             {
-                result.Status = ScanStatus.Error;
-                result.Details = ex.Message;
-                return result;
+                return new ScanResult { FilePath = filePath, Status = ScanStatus.Error, Details = ex.Message };
+            }
+        }
+
+        private bool TryComputeHash(string filePath, FileInfo fileInfo, out string hash, out ScanResult? errorResult)
+        {
+            hash = string.Empty;
+            errorResult = null;
+
+            if (fileInfo.Length >= 50 * 1024 * 1024)
+            {
+                errorResult = new ScanResult 
+                { 
+                    FilePath = filePath, 
+                    Status = ScanStatus.Skipped, 
+                    Details = "File too large for deep scan (>50MB)" 
+                };
+                return false;
+            }
+
+            hash = ComputeSha256(filePath);
+            if (string.IsNullOrEmpty(hash))
+            {
+                errorResult = new ScanResult { FilePath = filePath, Status = ScanStatus.Error };
+                return false;
+            }
+
+            return true;
+        }
+
+        private void ProcessCloudStrategy(string filePath, string hash, bool potentialCacheHit, FileState? cachedState, ref ScanResult result)
+        {
+            // Check Local Blacklist first
+            if (_config.BlacklistedHashes.Contains(hash))
+            {
+                result.Status = ScanStatus.Threat;
+                result.ThreatType = ThreatType.Malware;
+                result.Details = "Detected by Local Blacklist";
+                return;
+            }
+
+            // Check Cache TTL
+            bool useCache = false;
+            if (potentialCacheHit && cachedState != null && cachedState.Status == ScanStatus.Safe.ToString())
+            {
+                int ttlDays = IsCriticalFile(filePath) ? 7 : 30;
+                var age = DateTime.UtcNow - cachedState.LastScanned;
+                if (age.TotalDays < ttlDays)
+                {
+                    useCache = true;
+                }
+            }
+
+            if (!useCache && !string.IsNullOrEmpty(_config.ApiKey))
+            {
+                // Enqueue for Cloud Scan
+                _cloudQueue.Enqueue(filePath, hash);
+                result.Details = "Verified Locally (Queued for Cloud check)";
             }
         }
 
