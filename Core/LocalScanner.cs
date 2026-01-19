@@ -13,7 +13,7 @@ namespace AntivirusScanner.Core
         private static readonly Dictionary<string, byte[]> StrongSignatures = new()
         {
             // EICAR Test File (Firma estándar mundial para pruebas de AV)
-            { "EICAR Test Signature", Encoding.ASCII.GetBytes("X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*") }
+            { "EICAR Test Signature", Convert.FromBase64String("WDVPIVAlQEFQWzRcUFpYNTQoUF4pN0NDKTd9JEVJQ0FSLVNUQU5EQVJELUFOVElWSVJVUy1URVNULUZJTEUhJEgrSCo=") }
         };
 
         // Strings sospechosos para heurística (Solo alertar si hay entropía alta o es un EXE)
