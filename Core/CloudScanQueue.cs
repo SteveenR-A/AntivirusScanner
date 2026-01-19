@@ -116,15 +116,8 @@ namespace AntivirusScanner.Core
                 // Double check if queue has items (race condition where item added just closely after loop exit)
                 if (!_queue.IsEmpty)
                 {
-                    // Restart logic?
-                    // For simplicity, we assume enqueuer starts it. 
-                    // But if Enqueue happened after while check but before _isRunning=false?
-                    // We can check again.
-                     if (!_queue.IsEmpty)
-                     {
-                         _isRunning = true;
-                         _ = Task.Run(ProcessQueueLoop);
-                     }
+                    _isRunning = true;
+                    _ = Task.Run(ProcessQueueLoop);
                 }
             }
         }
