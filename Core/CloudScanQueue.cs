@@ -45,83 +45,7 @@ namespace AntivirusScanner.Core
             {
                 while (_queue.TryDequeue(out var request))
                 {
-                    // 1. Check Daily Quota before spending time
-                    if (_config.DailyApiUsage >= 500) 
-                    {
-                        var skippedResult = new ScanResult 
-                        { 
-                            FilePath = request.FilePath, 
-                            Status = ScanStatus.Skipped,
-                            Details = "Daily Quota Exceeded (500/500)"
-                        };
-                        OnCloudResult?.Invoke(skippedResult);
-                        continue; 
-                    }
-
-                    // 2. Call VirusTotal (This takes time and manages 15s delay internally)
-                    // We need to pass _config to CheckFileHashAsync as per existing implementation
-                    // Returns (Count, List<string>? Engines)
-                    var (detections, engines) = await _vtService.CheckFileHashAsync(request.Hash, _config);
-
-                    // 3. Create Result
-                    var result = new ScanResult { FilePath = request.FilePath };
-                    
-                    if (detections == -2) 
-                    {
-                         // Quota exhausted during call
-                         result.Status = ScanStatus.Skipped;
-                         result.Details = "Daily Quota Exceeded (500/500)";
-                    }
-                    else if (detections > 0)
-                    {
-                        // VIP Club Logic: Check if any major vendor is present
-                        var vipVendors = new[] { "Microsoft", "Kaspersky", "Google", "ESET-NOD32", "BitDefender", "Symantec" };
-                        bool vipConfirmed = engines != null && engines.Any(e => vipVendors.Contains(e)); // Simple contains check, might need better matching if names vary
-
-                        if (detections >= 4 || vipConfirmed)
-                        {
-                            result.Status = ScanStatus.Threat;
-                            result.ThreatType = ThreatType.Malware;
-                            string vipTag = vipConfirmed ? "[VIP CONFIRMED]" : "";
-                            result.Details = $"VirusTotal: {detections} detections {vipTag}";
-                            
-                            // Add to blacklist (Quarantine Trigger)
-                            lock(_config.BlacklistedHashes)
-                            {
-                                _config.BlacklistedHashes.Add(request.Hash);
-                            }
-                        }
-                        else
-                        {
-                             // 1-3 detections AND No VIPs -> Suspicious (False Positive Candidate)
-                             result.Status = ScanStatus.Suspicious;
-                             result.ThreatType = ThreatType.Unknown;
-                             result.Details = $"VirusTotal: {detections} flag(s) (No Big Vendor confirmed). Treating as Suspicious.";
-                             // Do NOT blacklist automatically.
-                        }
-                    }
-                    else if (detections == 0)
-                    {
-                        result.Status = ScanStatus.Safe;
-                        result.Details = "Verified Safe by VirusTotal";
-                        // Update Local Cache
-                        UpdateLocalCache(request.FilePath, request.Hash);
-                    }
-                    else 
-                    {
-                        // Error case (-1)
-                        result.Status = ScanStatus.Error;
-                        result.Details = "VirusTotal Scan Failed";
-                    }
-
-                    // 4. Notify UI (Important because this happens asynchronously)
-                    OnCloudResult?.Invoke(result);
-                    
-                    // Save config (API counter)
-                    // Locking not strictly necessary for simple types but good practice if multiple threads were writing
-                    // However, Scanner also writes. SettingsManager.Save might need care.
-                    // For now, we follow existing pattern.
-                    SettingsManager.Save(_config);
+                    await ProcessSingleRequest(request);
                 }
             }
             catch (Exception ex)
@@ -131,13 +55,121 @@ namespace AntivirusScanner.Core
             finally
             {
                 _isRunning = false;
-                // Double check if queue has items (race condition where item added just closely after loop exit)
-                if (!_queue.IsEmpty)
-                {
-                    _isRunning = true;
-                    _ = Task.Run(ProcessQueueLoop);
-                }
+                EnsureQueueProcessing();
             }
+        }
+
+        private void EnsureQueueProcessing() 
+        {
+            if (!_queue.IsEmpty)
+            {
+                _isRunning = true;
+                _ = Task.Run(ProcessQueueLoop);
+            }
+        }
+
+        private async Task ProcessSingleRequest(ScanRequest request)
+        {
+            // 1. Check Daily Quota
+            if (_config.DailyApiUsage >= 500)
+            {
+                NotifySkipped(request, "Daily Quota Exceeded (500/500)");
+                return;
+            }
+
+            // 2. Call VirusTotal
+            var (detections, engines) = await _vtService.CheckFileHashAsync(request.Hash, _config);
+
+            // 3. Create & Analyze Result
+            var result = CreateScanResult(request, detections, engines);
+
+            // 4. Handle Blacklist & Cache
+            if (result.Status == ScanStatus.Threat)
+            {
+                AddToBlacklist(request.Hash);
+            }
+            else if (result.Status == ScanStatus.Safe)
+            {
+                UpdateLocalCache(request.FilePath, request.Hash);
+            }
+
+             // 5. Check for Quota Exhaustion during call (Edge case)
+            if (detections == -2)
+            {
+                 result.Status = ScanStatus.Skipped;
+                 result.Details = "Daily Quota Exceeded (500/500)";
+            }
+
+            // 6. Notify UI & Save
+            OnCloudResult?.Invoke(result);
+            SettingsManager.Save(_config);
+        }
+
+        private void NotifySkipped(ScanRequest request, string reason)
+        {
+             var result = new ScanResult 
+             { 
+                 FilePath = request.FilePath, 
+                 Status = ScanStatus.Skipped,
+                 Details = reason
+             };
+             OnCloudResult?.Invoke(result);
+        }
+
+        private void AddToBlacklist(string hash)
+        {
+            lock (_config.BlacklistedHashes)
+            {
+                _config.BlacklistedHashes.Add(hash);
+            }
+        }
+
+        private ScanResult CreateScanResult(ScanRequest request, int detections, System.Collections.Generic.List<string>? engines)
+        {
+            var result = new ScanResult { FilePath = request.FilePath };
+
+            if (detections == -1) // Error
+            {
+                result.Status = ScanStatus.Error;
+                result.Details = "VirusTotal Scan Failed";
+                return result;
+            }
+            
+            if (detections == -2) return result; // Handled in caller
+
+            if (detections == 0)
+            {
+                result.Status = ScanStatus.Safe;
+                result.Details = "Verified Safe by VirusTotal";
+                return result;
+            }
+
+            // Suspicious or Threat
+            return AnalyzeDetections(result, detections, engines);
+        }
+
+        private ScanResult AnalyzeDetections(ScanResult result, int detections, System.Collections.Generic.List<string>? engines)
+        {
+            // VIP Club Logic
+            var vipVendors = new[] { "Microsoft", "Kaspersky", "Google", "ESET-NOD32", "BitDefender", "Symantec" };
+            bool vipConfirmed = engines != null && engines.Any(e => vipVendors.Contains(e));
+
+            if (detections >= 4 || vipConfirmed)
+            {
+                result.Status = ScanStatus.Threat;
+                result.ThreatType = ThreatType.Malware;
+                string vipTag = vipConfirmed ? "[VIP CONFIRMED]" : "";
+                result.Details = $"VirusTotal: {detections} detections {vipTag}";
+            }
+            else
+            {
+                // 1-3 detections AND No VIPs
+                result.Status = ScanStatus.Suspicious;
+                result.ThreatType = ThreatType.Unknown;
+                result.Details = $"VirusTotal: {detections} flag(s) (No Big Vendor confirmed). Treating as Suspicious.";
+            }
+
+            return result;
         }
 
         private void UpdateLocalCache(string path, string hash)
