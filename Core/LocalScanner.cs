@@ -235,7 +235,12 @@ namespace AntivirusScanner.Core
                 {
                     int toRead = (int)Math.Min(fs.Length, SAMPLE_SIZE);
                     data = new byte[toRead];
-                    fs.Read(data, 0, toRead);
+                    int bytesRead = fs.Read(data, 0, toRead);
+                    
+                    if (bytesRead < toRead)
+                    {
+                        Array.Resize(ref data, bytesRead);
+                    }
                 }
 
                 if (data.Length == 0) return 0;
