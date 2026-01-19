@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Text;
+using System.Linq;
 using AntivirusScanner.Utils;
 
 namespace AntivirusScanner.Core
@@ -37,41 +38,53 @@ namespace AntivirusScanner.Core
         public ScanResult CheckLocalSignatures(string filePath)
         {
             var result = new ScanResult { FilePath = filePath, Status = ScanStatus.Safe };
-            
+
             string magic = GetMagicNumber(filePath);
             string ext = Path.GetExtension(filePath).ToLower();
 
-            foreach (var sig in Signatures)
+            var match = Signatures.FirstOrDefault(s => magic.StartsWith(s.Key));
+            if (match.Key != null)
             {
-                if (magic.StartsWith(sig.Key))
-                {
-                    bool validExt = false;
-                    foreach (var valid in sig.Value.Exts) if (ext == valid) validExt = true;
-
-                    if (!validExt)
-                    {
-                        foreach (var mask in MaskExtensions)
-                            if (ext == mask) 
-                            { 
-                                result.Status = ScanStatus.Suspicious; 
-                                result.ThreatType = ThreatType.Spoofing;
-                                result.Details = $"Spoofing ({sig.Value.Desc} as {ext})"; 
-                                return result;
-                            }
-                        
-                        if (sig.Key == "4d5a") 
-                        { 
-                            result.Status = ScanStatus.Suspicious;
-                            result.ThreatType = ThreatType.Spoofing;
-                            result.Details = "Hidden Executable";
-                            return result;
-                        }
-                    }
-                    break;
-                }
+                return ValidateSignature(match, ext, filePath);
             }
             return result;
         }
+
+        private ScanResult ValidateSignature(KeyValuePair<string, (string Desc, string[] Exts)> sig, string ext, string filePath)
+        {
+            if (IsExtensionValid(ext, sig.Value.Exts))
+            {
+                return new ScanResult { FilePath = filePath, Status = ScanStatus.Safe };
+            }
+
+            if (IsMaskExtension(ext))
+            {
+                return new ScanResult
+                {
+                    FilePath = filePath,
+                    Status = ScanStatus.Suspicious,
+                    ThreatType = ThreatType.Spoofing,
+                    Details = $"Spoofing ({sig.Value.Desc} as {ext})"
+                };
+            }
+
+            if (sig.Key == "4d5a")
+            {
+                return new ScanResult
+                {
+                    FilePath = filePath,
+                    Status = ScanStatus.Suspicious,
+                    ThreatType = ThreatType.Spoofing,
+                    Details = "Hidden Executable"
+                };
+            }
+
+            return new ScanResult { FilePath = filePath, Status = ScanStatus.Safe };
+        }
+
+        private bool IsExtensionValid(string ext, string[] validExtensions) => validExtensions.Contains(ext);
+
+        private bool IsMaskExtension(string ext) => MaskExtensions.Contains(ext);
 
         public ScanResult ScanFileContent(string filePath)
         {
