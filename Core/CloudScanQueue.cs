@@ -154,7 +154,7 @@ namespace AntivirusScanner.Core
             }
         }
 
-        private class ScanRequest 
+        private sealed class ScanRequest 
         { 
             public string FilePath { get; set; } = ""; 
             public string Hash { get; set; } = ""; 
