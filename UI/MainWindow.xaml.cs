@@ -107,13 +107,10 @@ namespace AntivirusScanner.UI
 
         private void StartServices()
         {
-            if (_config.MonitoringEnabled)
+            if (_config.MonitoringEnabled && !_monitor.Start())
             {
-                if (!_monitor.Start()) 
-                {
-                    _config.MonitoringEnabled = false; // Disable if failed
-                    SettingsManager.Save(_config);
-                }
+                _config.MonitoringEnabled = false; // Disable if failed
+                SettingsManager.Save(_config);
             }
             UpdateMonitorUI();
         }
