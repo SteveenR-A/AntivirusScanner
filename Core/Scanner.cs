@@ -132,13 +132,12 @@ namespace AntivirusScanner.Core
         private bool TryGetCachedState(string filePath, FileInfo fileInfo, out FileState? cachedState)
         {
             cachedState = null;
-            if (_config.FileStates.TryGetValue(filePath, out var oldState))
+            if (_config.FileStates.TryGetValue(filePath, out var oldState) && 
+                oldState.LastModified == fileInfo.LastWriteTimeUtc && 
+                oldState.Size == fileInfo.Length)
             {
-                if (oldState.LastModified == fileInfo.LastWriteTimeUtc && oldState.Size == fileInfo.Length)
-                {
-                    cachedState = oldState;
-                    return true;
-                }
+                cachedState = oldState;
+                return true;
             }
             return false;
         }
