@@ -14,6 +14,7 @@ namespace AntivirusScanner.Core
     {
         private AppConfig _config;
         private readonly CloudScanQueue _cloudQueue;
+        private readonly string _ownDirectory;
         
         // Events for UI
         public event Action<string>? OnScanStarted;
@@ -25,6 +26,7 @@ namespace AntivirusScanner.Core
             _config = config;
             _cloudQueue = new CloudScanQueue(config);
             _cloudQueue.OnCloudResult += HandleCloudResult;
+            _ownDirectory = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
         }
 
         public void UpdateConfig(AppConfig newConfig)
@@ -83,6 +85,18 @@ namespace AntivirusScanner.Core
 
         public async Task<ScanResult> ScanFile(string filePath)
         {
+            // Self-Exclusion: Prevent scanning our own files (Critical for stability)
+            string? fileDir = Path.GetDirectoryName(filePath);
+            if (fileDir != null && fileDir.StartsWith(_ownDirectory, StringComparison.InvariantCultureIgnoreCase))
+            {
+                return new ScanResult 
+                { 
+                    FilePath = filePath, 
+                    Status = ScanStatus.Skipped, 
+                    Details = "System File (Self-Exclusion)" 
+                };
+            }
+
             if (!File.Exists(filePath)) 
                 return new ScanResult { FilePath = filePath, Status = ScanStatus.Error, Details = "File not found" };
 
