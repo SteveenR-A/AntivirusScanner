@@ -16,11 +16,11 @@ namespace AntivirusScanner.Core
         };
 
         // Strings sospechosos para heurística (Solo alertar si hay entropía alta o es un EXE)
+        // Obfuscated to avoid triggering other AVs (Self-detection)
         private static readonly Dictionary<string, byte[]> HeuristicPatterns = new()
         {
-            { "PowerShell Hidden", new byte[] { 0x70, 0x00, 0x6F, 0x00, 0x77, 0x00, 0x65, 0x00, 0x72, 0x00, 0x73, 0x00, 0x68, 0x00, 0x65, 0x00, 0x6C, 0x00, 0x6C, 0x00, 0x20, 0x00, 0x2D, 0x00, 0x48, 0x00 } }, // "powershell -H" (Unicode)
-            // { "Process Injection", Encoding.ASCII.GetBytes("CreateRemoteThread") },
-            // { "Memory Manip", Encoding.ASCII.GetBytes("VirtualAlloc") }
+            // "powershell -H" (Unicode) -> Base64
+            { "PowerShell Hidden", Convert.FromBase64String("cABvAHcAZQByAHMAaABlAGwAbAAgAC0ASAA=") }, 
         };
 
         // File Signatures (Magic Numbers)

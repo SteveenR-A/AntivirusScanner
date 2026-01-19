@@ -287,7 +287,8 @@ namespace AntivirusScanner.Core
                 try 
                 {
                     // Simple Obfuscation: XOR the first 4KB to break PE Header / Magic Numbers
-                    byte[] key = { 0xDE, 0xAD, 0xBE, 0xEF };
+                    // Key changed to random bytes (was DEADBEEF) to avoid heuristics
+                    byte[] key = { 0x45, 0x8A, 0x21, 0x99 }; 
                     using (var fs = new FileStream(destPath, FileMode.Open, FileAccess.ReadWrite))
                     {
                         byte[] buffer = new byte[4096];
@@ -302,7 +303,7 @@ namespace AntivirusScanner.Core
                 }
                 catch { /* Ignore obfuscation errors, file is already moved and renamed */ }
 
-                File.WriteAllText(destPath + ".txt", $"Original: {filePath}\nDate: {DateTime.Now}\nReason: {reason}\nNote: File is XOR obfuscated (Key: DEADBEEF)");
+                File.WriteAllText(destPath + ".txt", $"Original: {filePath}\nDate: {DateTime.Now}\nReason: {reason}\nNote: File is XOR obfuscated (Random Key)");
             }
             catch (Exception ex)
             {
